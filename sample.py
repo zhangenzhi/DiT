@@ -81,3 +81,5 @@ if __name__ == "__main__":
                         help="Optional path to a DiT checkpoint (default: auto-download a pre-trained DiT-XL/2 model).")
     args = parser.parse_args()
     main(args)
+    
+# python sample.py --model DiT-XL/2 --image-size 256 --ckpt /path/to/model.pt
