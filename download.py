@@ -55,7 +55,8 @@ def resume_from_checkpoint(args, model, ema, opt, device, logger, steps_per_epoc
 
     # [重要] weights_only=False 是必须的，因为你的 checkpoint 里包含 'args' (Pickle 对象)
     # 如果只保存了 state_dict，可以改为 True
-    checkpoint = torch.load(args.resume, map_location=device, weights_only=False)
+    map_location = f"cuda:{device}"
+    checkpoint = torch.load(args.resume, map_location=map_location, weights_only=False)
 
     # 1. 加载模型权重 (处理 DDP 的 module 前缀)
     # 既然外面传进来的是 DDP(model)，我们需要访问 .module
