@@ -10,8 +10,8 @@ Functions for downloading pre-trained DiT models
 from torchvision.datasets.utils import download_url
 import torch.distributed as dist
 import torch
+from collections import OrderedDict
 import os
-
 
 pretrained_models = {'DiT-XL-2-512x512.pt', 'DiT-XL-2-256x256.pt'}
 
