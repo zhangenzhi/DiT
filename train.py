@@ -30,7 +30,7 @@ import os
 from models import DiT_models
 from diffusion import create_diffusion
 from diffusers.models import AutoencoderKL
-
+from download import resume_from_checkpoint
 
 #################################################################################
 #                             Training Helper Functions                         #
@@ -185,6 +185,20 @@ def main(args):
     model.train()  # important! This enables embedding dropout for classifier-free guidance
     ema.eval()  # EMA model should always be in eval mode
 
+    # 计算每个 epoch 有多少步 (用于估算 start_epoch)
+    steps_per_epoch = len(dataset) // args.global_batch_size
+    start_epoch = 0
+    if args.resume:
+        start_epoch, train_steps = resume_from_checkpoint(
+            args=args, 
+            model=model, 
+            ema=ema, 
+            opt=opt, 
+            device=device, 
+            logger=logger,
+            steps_per_epoch=steps_per_epoch
+        )
+    
     # Variables for monitoring/logging purposes:
     train_steps = 0
     log_steps = 0
@@ -192,7 +206,7 @@ def main(args):
     start_time = time()
 
     logger.info(f"Training for {args.epochs} epochs...")
-    for epoch in range(args.epochs):
+    for epoch in range(start_epoch, args.epochs):
         sampler.set_epoch(epoch)
         logger.info(f"Beginning epoch {epoch}...")
         for x, y in loader:
