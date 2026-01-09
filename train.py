@@ -279,5 +279,10 @@ if __name__ == "__main__":
     parser.add_argument("--num-workers", type=int, default=4)
     parser.add_argument("--log-every", type=int, default=100)
     parser.add_argument("--ckpt-every", type=int, default=5_000)
+    parser.add_argument("--resume", type=str, default=None, help="Path to checkpoint to resume from (e.g. results/001/checkpoints/0050000.pt)")
+    
     args = parser.parse_args()
     main(args)
+
+
+# torchrun --nnodes=1 --nproc_per_node=4 train.py --model DiT-B/2 --data-path /work/c30778/dataset/imagenet/ --resume ./results/000-DiT-B-2/checkpoints/0200000.pt
