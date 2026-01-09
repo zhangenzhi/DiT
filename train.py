@@ -6,6 +6,7 @@
 
 """
 A minimal training script for DiT using PyTorch DDP.
+Modified to support BF16 training specifically.
 """
 import torch
 # the first flag below was False when we tested this script but True makes A100 training a lot faster:
@@ -26,6 +27,9 @@ from time import time
 import argparse
 import logging
 import os
+
+# Import AMP for mixed precision (Only autocast needed for BF16)
+from torch.cuda.amp import autocast
 
 from models import DiT_models
 from diffusion import create_diffusion
@@ -215,6 +219,16 @@ def main(args):
             steps_per_epoch=steps_per_epoch
         )
     
+    # --- BF16 Setup ---
+    if args.bf16:
+        if rank == 0:
+            logger.info("Training with BF16 mixed precision.")
+            if not torch.cuda.is_bf16_supported():
+                logger.warning("Warning: BF16 requested but not supported by this hardware. Performance may degrade or error.")
+    else:
+        if rank == 0:
+            logger.info("Training with FP32 (default).")
+
     logger.info(f"Training for {args.epochs} epochs...")
     for epoch in range(start_epoch, args.epochs):
         sampler.set_epoch(epoch)
@@ -222,15 +236,27 @@ def main(args):
         for x, y in loader:
             x = x.to(device)
             y = y.to(device)
+            
             with torch.no_grad():
+                # Map input images to latent space + normalize latents:
                 x = vae.encode(x).latent_dist.sample().mul_(0.18215)
+                
             t = torch.randint(0, diffusion.num_timesteps, (x.shape[0],), device=device)
             model_kwargs = dict(y=y)
-            loss_dict = diffusion.training_losses(model, x, t, model_kwargs)
-            loss = loss_dict["loss"].mean()
+            
+            # --- Training Step with BF16 Support ---
             opt.zero_grad()
+            
+            # Use autocast for BF16 if enabled. 
+            # Note: No GradScaler is used because BF16 has the same dynamic range as FP32.
+            with autocast(enabled=args.bf16, dtype=torch.bfloat16):
+                loss_dict = diffusion.training_losses(model, x, t, model_kwargs)
+                loss = loss_dict["loss"].mean()
+
+            # Standard backward pass (no scaler needed for BF16)
             loss.backward()
             opt.step()
+            
             update_ema(ema, model.module)
 
             # Log loss values:
@@ -287,8 +313,11 @@ if __name__ == "__main__":
     parser.add_argument("--ckpt-every", type=int, default=20_000)
     parser.add_argument("--resume", type=str, default=None)
     
+    # Simplified Mixed Precision Argument for BF16 only
+    parser.add_argument("--bf16", action="store_true", help="Enable BF16 training (requires Ampere+ GPU for best performance)")
+    
     args = parser.parse_args()
     main(args)
 
 
-# torchrun --nnodes=1 --nproc_per_node=4 train.py --model DiT-B/2 --data-path /work/c30778/dataset/imagenet/ --resume ./results/000-DiT-B-2/checkpoints/0200000.pt
+# torchrun --nnodes=1 --nproc_per_node=4 train.py --model DiT-B/2 --data-path /work/c30778/dataset/imagenet/ --bf16 --resume ./results/007-DiT-B-2/checkpoints/0210000.pt
