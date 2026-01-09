@@ -43,7 +43,13 @@ def download_model(model_name):
     return model
 
 def resume_from_checkpoint(args, model, ema, opt, device, logger, steps_per_epoch=None):
+    """
+    从 Checkpoint 恢复模型状态，包含针对 torch.compile 的前缀清洗逻辑。
+    """
     import torch.distributed as dist
+    from collections import OrderedDict
+    import os
+
     start_epoch = 0
     train_steps = 0
 
@@ -54,25 +60,35 @@ def resume_from_checkpoint(args, model, ema, opt, device, logger, steps_per_epoc
         logger.info(f"Resuming checkpoint from: {args.resume}")
 
     # [重要] weights_only=False 是必须的，因为你的 checkpoint 里包含 'args' (Pickle 对象)
-    # 如果只保存了 state_dict，可以改为 True
+    # map_location 必须是字符串，例如 "cuda:0"
     map_location = f"cuda:{device}"
     checkpoint = torch.load(args.resume, map_location=map_location, weights_only=False)
+    
+    def clean_state_dict(state_dict):
+        new_state_dict = OrderedDict()
+        for k, v in state_dict.items():
+            # 移除 torch.compile 产生的前缀 (长度为10)
+            name = k[10:] if k.startswith('_orig_mod.') else k
+            new_state_dict[name] = v
+        return new_state_dict
 
-    # 1. 加载模型权重 (处理 DDP 的 module 前缀)
-    # 既然外面传进来的是 DDP(model)，我们需要访问 .module
+    raw_model_state = checkpoint["model"]
+    clean_model_state = clean_state_dict(raw_model_state)
+
     if hasattr(model, 'module'):
-        model.module.load_state_dict(checkpoint["model"])
+        model.module.load_state_dict(clean_model_state)
     else:
-        model.load_state_dict(checkpoint["model"])
+        model.load_state_dict(clean_model_state)
 
-    # 2. 加载 EMA 和 优化器
     if ema is not None and "ema" in checkpoint:
-        ema.load_state_dict(checkpoint["ema"])
+        # EMA 也需要清洗，以防万一
+        raw_ema_state = checkpoint["ema"]
+        clean_ema_state = clean_state_dict(raw_ema_state)
+        ema.load_state_dict(clean_ema_state)
     
     if opt is not None and "opt" in checkpoint:
         opt.load_state_dict(checkpoint["opt"])
 
-    # 3. 恢复训练进度 (Steps)
     if "train_steps" in checkpoint:
         train_steps = checkpoint["train_steps"]
     else:
@@ -85,7 +101,6 @@ def resume_from_checkpoint(args, model, ema, opt, device, logger, steps_per_epoc
                 logger.warning("Could not extract train_steps from checkpoint or filename. Starting steps from 0.")
             train_steps = 0
 
-    # 4. 恢复训练进度 (Epoch)
     if "epoch" in checkpoint:
         # 如果保存的是 epoch 100 结束时的状态，那么下次应该从 101 开始
         start_epoch = checkpoint["epoch"] + 1
