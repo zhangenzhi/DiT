@@ -322,4 +322,4 @@ if __name__ == "__main__":
     main(args)
 
 # 运行示例:
-# torchrun --nnodes=1 --nproc_per_node=4 train_feature.py --model DiT-B/2 --features-path /work/c30778/dataset/dit_feat --bf16
+# torchrun --nnodes=1 --nproc_per_node=2 train_feat.py --model DiT-B/2 --features-path /work/c30778/dataset/dit_feat --bf16
