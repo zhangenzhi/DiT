@@ -82,4 +82,4 @@ if __name__ == "__main__":
     args = parser.parse_args()
     main(args)
     
-# python sample.py --model DiT-XL/2 --image-size 256 --ckpt /path/to/model.pt
+# python sample.py --model DiT-XL/2 --image-size 256 --ckpt ./results/000-DiT-B-2/checkpoints/0200000.pt
