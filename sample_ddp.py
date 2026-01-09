@@ -165,4 +165,4 @@ if __name__ == "__main__":
     args = parser.parse_args()
     main(args)
     
-# torchrun --nnodes=1 --nproc_per_node=N sample_ddp.py --model DiT-XL/2 --num-fid-samples 50000
+# torchrun --nnodes=1 --nproc_per_node=4 sample_ddp.py --model DiT-XL/2 --num-fid-samples 50000 --ckpt ./results/000-DiT-B-2/checkpoints/0200000.pt
