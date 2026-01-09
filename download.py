@@ -8,7 +8,7 @@
 Functions for downloading pre-trained DiT models
 """
 from torchvision.datasets.utils import download_url
-import torch.distribute as dist
+import torch.distributed as dist
 import torch
 import os
 
