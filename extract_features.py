@@ -133,10 +133,9 @@ if __name__ == "__main__":
     parser.add_argument("--features-path", type=str, required=True, help="Path to save features")
     parser.add_argument("--vae-path", type=str, default="stabilityai/sd-vae-ft-ema")
     parser.add_argument("--image-size", type=int, default=256)
-    parser.add_argument("--batch-size", type=int, default=32)
-    parser.add_argument("--num-workers", type=int, default=8)
+    parser.add_argument("--batch-size", type=int, default=512)
+    parser.add_argument("--num-workers", type=int, default=32)
     args = parser.parse_args()
     main(args)
     
-# torchrun --nproc_per_node=4 train.py --model DiT-XL/2 --data-path /work/c30778/dataset/imagenet/train
-# torchrun --nproc_per_node=4 train.py --model DiT-B/2 --data-path /work/c30778/dataset/imagenet/train
+# torchrun --nproc_per_node=2 extract_features.py --data-path /work/c30778/dataset/imagenet --features-path /work/c30778/dataset/dit_feat
