@@ -125,11 +125,11 @@ def main(args):
 
     # Setup an experiment folder:
     if rank == 0:
-        os.makedirs(args.results_dir, exist_ok=True)  # Make results folder (holds all experiment subfolders)
+        os.makedirs(args.results_dir, exist_ok=True)
         experiment_index = len(glob(f"{args.results_dir}/*"))
-        model_string_name = args.model.replace("/", "-")  # e.g., DiT-XL/2 --> DiT-XL-2 (for naming folders)
-        experiment_dir = f"{args.results_dir}/{experiment_index:03d}-{model_string_name}"  # Create an experiment folder
-        checkpoint_dir = f"{experiment_dir}/checkpoints"  # Stores saved model checkpoints
+        model_string_name = args.model.replace("/", "-")
+        experiment_dir = f"{args.results_dir}/{experiment_index:03d}-{model_string_name}"
+        checkpoint_dir = f"{experiment_dir}/checkpoints"
         os.makedirs(checkpoint_dir, exist_ok=True)
         logger = create_logger(experiment_dir)
         logger.info(f"Experiment directory created at {experiment_dir}")
@@ -143,18 +143,26 @@ def main(args):
         input_size=latent_size,
         num_classes=args.num_classes
     )
+    
     # Note that parameter initialization is done within the DiT constructor
-    ema = deepcopy(model).to(device)  # Create an EMA of the model for use after training
+    ema = deepcopy(model).to(device)
     requires_grad(ema, False)
-    model = DDP(model.to(device), device_ids=[rank])
-    diffusion = create_diffusion(timestep_respacing="")  # default: 1000 steps, linear noise schedule
+    
+
+    model = model.to(device)
+    if rank == 0:
+        logger.info("Compiling model with torch.compile...")
+    model = torch.compile(model, mode="default")
+    model = DDP(model, device_ids=[rank])
+    
+    diffusion = create_diffusion(timestep_respacing="")
     vae = AutoencoderKL.from_pretrained(f"stabilityai/sd-vae-ft-{args.vae}").to(device)
     logger.info(f"DiT Parameters: {sum(p.numel() for p in model.parameters()):,}")
 
-    # Setup optimizer (we used default Adam betas=(0.9, 0.999) and a constant learning rate of 1e-4 in our paper):
+    # Setup optimizer
     opt = torch.optim.AdamW(model.parameters(), lr=1e-4, weight_decay=0)
 
-    # Setup data:
+    # Setup data
     transform = transforms.Compose([
         transforms.Lambda(lambda pil_image: center_crop_arr(pil_image, args.image_size)),
         transforms.RandomHorizontalFlip(),
@@ -181,13 +189,19 @@ def main(args):
     logger.info(f"Dataset contains {len(dataset):,} images ({args.data_path})")
 
     # Prepare models for training:
-    update_ema(ema, model.module, decay=0)  # Ensure EMA is initialized with synced weights
-    model.train()  # important! This enables embedding dropout for classifier-free guidance
-    ema.eval()  # EMA model should always be in eval mode
+    update_ema(ema, model.module, decay=0)
+    model.train()
+    ema.eval()
 
-    # 计算每个 epoch 有多少步 (用于估算 start_epoch)
-    steps_per_epoch = len(dataset) // args.global_batch_size
+    # Variables for monitoring/logging purposes:
+    train_steps = 0
+    log_steps = 0
+    running_loss = 0
+    start_time = time()
     start_epoch = 0
+
+    # Resume logic
+    steps_per_epoch = len(dataset) // args.global_batch_size
     if args.resume:
         start_epoch, train_steps = resume_from_checkpoint(
             args=args, 
@@ -199,12 +213,6 @@ def main(args):
             steps_per_epoch=steps_per_epoch
         )
     
-    # Variables for monitoring/logging purposes:
-    train_steps = 0
-    log_steps = 0
-    running_loss = 0
-    start_time = time()
-
     logger.info(f"Training for {args.epochs} epochs...")
     for epoch in range(start_epoch, args.epochs):
         sampler.set_epoch(epoch)
@@ -213,7 +221,6 @@ def main(args):
             x = x.to(device)
             y = y.to(device)
             with torch.no_grad():
-                # Map input images to latent space + normalize latents:
                 x = vae.encode(x).latent_dist.sample().mul_(0.18215)
             t = torch.randint(0, diffusion.num_timesteps, (x.shape[0],), device=device)
             model_kwargs = dict(y=y)
@@ -229,16 +236,13 @@ def main(args):
             log_steps += 1
             train_steps += 1
             if train_steps % args.log_every == 0:
-                # Measure training speed:
                 torch.cuda.synchronize()
                 end_time = time()
                 steps_per_sec = log_steps / (end_time - start_time)
-                # Reduce loss history over all processes:
                 avg_loss = torch.tensor(running_loss / log_steps, device=device)
                 dist.all_reduce(avg_loss, op=dist.ReduceOp.SUM)
                 avg_loss = avg_loss.item() / dist.get_world_size()
                 logger.info(f"(step={train_steps:07d}) Train Loss: {avg_loss:.4f}, Train Steps/Sec: {steps_per_sec:.2f}")
-                # Reset monitoring variables:
                 running_loss = 0
                 log_steps = 0
                 start_time = time()
@@ -250,16 +254,16 @@ def main(args):
                         "model": model.module.state_dict(),
                         "ema": ema.state_dict(),
                         "opt": opt.state_dict(),
-                        "args": args
+                        "args": args,
+                        "train_steps": train_steps,
+                        "epoch": epoch
                     }
                     checkpoint_path = f"{checkpoint_dir}/{train_steps:07d}.pt"
                     torch.save(checkpoint, checkpoint_path)
                     logger.info(f"Saved checkpoint to {checkpoint_path}")
                 dist.barrier()
 
-    model.eval()  # important! This disables randomized embedding dropout
-    # do any sampling/FID calculation/etc. with ema (or model) in eval mode ...
-
+    model.eval()
     logger.info("Done!")
     cleanup()
 
