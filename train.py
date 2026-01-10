@@ -10,8 +10,8 @@ Modified to support BF16 training specifically.
 """
 import torch
 # # the first flag below was False when we tested this script but True makes A100 training a lot faster:
-# torch.backends.cuda.matmul.allow_tf32 = True
-# torch.backends.cudnn.allow_tf32 = True
+torch.backends.cuda.matmul.allow_tf32 = True
+torch.backends.cudnn.allow_tf32 = True
 import torch.distributed as dist
 from torch.nn.parallel import DistributedDataParallel as DDP
 from torch.utils.data import DataLoader
