@@ -249,9 +249,9 @@ def main(args):
             
             # Use autocast for BF16 if enabled. 
             # Note: No GradScaler is used because BF16 has the same dynamic range as FP32.
-            with autocast(enabled=args.bf16, dtype=torch.bfloat16):
-                loss_dict = diffusion.training_losses(model, x, t, model_kwargs)
-                loss = loss_dict["loss"].mean()
+            # with autocast(enabled=args.bf16, dtype=torch.bfloat16):
+            loss_dict = diffusion.training_losses(model, x, t, model_kwargs)
+            loss = loss_dict["loss"].mean()
 
             # Standard backward pass (no scaler needed for BF16)
             loss.backward()
