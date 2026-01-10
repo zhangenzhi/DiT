@@ -166,7 +166,7 @@ def main(args):
     logger.info(f"DiT Parameters: {sum(p.numel() for p in model.parameters()):,}")
 
     # Setup optimizer
-    opt = torch.optim.AdamW(model.parameters(), lr=1e-4, weight_decay=0)
+    opt = torch.optim.AdamW(model.parameters(), lr=4*1e-4, weight_decay=0)
 
     # Setup data
     transform = transforms.Compose([
