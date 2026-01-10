@@ -156,9 +156,9 @@ def main(args):
     
 
     model = model.to(device)
-    if rank == 0:
-        logger.info("Compiling model with torch.compile...")
-    model = torch.compile(model, mode="default")
+    # if rank == 0:
+    #     logger.info("Compiling model with torch.compile...")
+    # model = torch.compile(model, mode="default")
     model = DDP(model, device_ids=[rank])
     
     diffusion = create_diffusion(timestep_respacing="")
