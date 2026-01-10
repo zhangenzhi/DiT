@@ -34,7 +34,7 @@ def main(args):
     # Load VAE model
     # 使用 Stability AI 的官方 VAE
     print(f"Rank {rank}: Loading VAE model...")
-    vae = AutoencoderKL.from_pretrained(args.vae_path).to(device)
+    vae = AutoencoderKL.from_pretrained(f"stabilityai/sd-vae-ft-{args.vae}").to(device)
     vae.eval()
 
     # Setup ImageNet Dataset
@@ -131,7 +131,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--data-path", type=str, required=True, help="Path to ImageNet train directory")
     parser.add_argument("--features-path", type=str, required=True, help="Path to save features")
-    parser.add_argument("--vae-path", type=str, default="stabilityai/sd-vae-ft-mse")
+    parser.add_argument("--vae", type=str, choices=["ema", "mse"], default="ema")  # Choice doesn't affect training
     parser.add_argument("--image-size", type=int, default=256)
     parser.add_argument("--batch-size", type=int, default=512)
     parser.add_argument("--num-workers", type=int, default=32)
