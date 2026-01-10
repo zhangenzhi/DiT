@@ -131,7 +131,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--data-path", type=str, required=True, help="Path to ImageNet train directory")
     parser.add_argument("--features-path", type=str, required=True, help="Path to save features")
-    parser.add_argument("--vae-path", type=str, default="stabilityai/sd-vae-ft-ema")
+    parser.add_argument("--vae-path", type=str, default="stabilityai/sd-vae-ft-mse")
     parser.add_argument("--image-size", type=int, default=256)
     parser.add_argument("--batch-size", type=int, default=512)
     parser.add_argument("--num-workers", type=int, default=32)
