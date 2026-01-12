@@ -548,4 +548,4 @@ if __name__ == "__main__":
     main(args)
 
 
-# torchrun --nnodes=1 --nproc_per_node=4 train.py --model DiT-B/2 --data-path /work/c30778/dataset/imagenet/ --bf16 --resume ./results/007-DiT-B-2/checkpoints/0210000.pt
+# torchrun --nnodes=1 --nproc_per_node=4 train.py --model DiT-B/2 --data-path /work/c30778/dataset/imagenet/train --bf16 --resume ./results/007-DiT-B-2/checkpoints/0210000.pt
