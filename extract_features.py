@@ -148,4 +148,4 @@ if __name__ == "__main__":
     args = parser.parse_args()
     main(args)
     
-# torchrun --nproc_per_node=4 extract_features.py --model --data-path /work/c30778/dataset/imagenet --features-path /work/c30778/dataset/dit_feat
+# torchrun --nproc_per_node=4 extract_features.py --data-path /work/c30778/dataset/imagenet --features-path /work/c30778/dataset/dit_feat_fix

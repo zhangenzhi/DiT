@@ -201,6 +201,7 @@ def main(args):
         for x, y in loader:
             x = x.to(device)
             y = y.to(device)
+            print(x.shape, y.shape)
             # with torch.no_grad():
             #     # Map input images to latent space + normalize latents:
             #     x = vae.encode(x).latent_dist.sample().mul_(0.18215)
