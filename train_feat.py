@@ -149,7 +149,7 @@ def main(args):
     requires_grad(ema, False)
     model = DDP(model.to(device), device_ids=[rank])
     diffusion = create_diffusion(timestep_respacing="")  # default: 1000 steps, linear noise schedule
-    vae = AutoencoderKL.from_pretrained(f"stabilityai/sd-vae-ft-{args.vae}").to(device)
+    # vae = AutoencoderKL.from_pretrained(f"stabilityai/sd-vae-ft-{args.vae}").to(device)
     logger.info(f"DiT Parameters: {sum(p.numel() for p in model.parameters()):,}")
 
     # Setup optimizer (we used default Adam betas=(0.9, 0.999) and a constant learning rate of 1e-4 in our paper):
@@ -181,7 +181,7 @@ def main(args):
         pin_memory=True,
         drop_last=True
     )
-    logger.info(f"Dataset contains {len(dataset):,} images ({args.data_path})")
+    logger.info(f"Dataset contains {len(dataset):,} latent images ({args.features_path})")
 
     # Prepare models for training:
     update_ema(ema, model.module, decay=0)  # Ensure EMA is initialized with synced weights
@@ -271,4 +271,4 @@ if __name__ == "__main__":
     args = parser.parse_args()
     main(args)
 
-# torchrun --nnodes=1 --nproc_per_node=4 train_feat.py --model DiT-B/2 --features-path /work/c30778/imagenet_latent/train
+# torchrun --nnodes=1 --nproc_per_node=4 train_feat.py --model DiT-B/2 --features-path /work/c30778/dataset/dit_feat/train
