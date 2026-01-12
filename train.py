@@ -29,12 +29,12 @@ import logging
 import os
 
 # Import AMP for mixed precision (Only autocast needed for BF16)
-from torch.cuda.amp import autocast
+# from torch.cuda.amp import autocast
 
 from models import DiT_models
 from diffusion import create_diffusion
 from diffusers.models import AutoencoderKL
-from download import resume_from_checkpoint
+# from download import resume_from_checkpoint
 
 # @torch.no_grad()
 # def update_ema(ema_model, model, decay=0.9999):
@@ -408,7 +408,7 @@ def main(args):
     logger.info(f"DiT Parameters: {sum(p.numel() for p in model.parameters()):,}")
 
     # Setup optimizer (we used default Adam betas=(0.9, 0.999) and a constant learning rate of 1e-4 in our paper):
-    opt = torch.optim.AdamW(model.parameters(), lr=4*1e-4, weight_decay=0)
+    opt = torch.optim.AdamW(model.parameters(), lr=1e-4, weight_decay=0)
 
     # Setup data:
     transform = transforms.Compose([
@@ -533,12 +533,12 @@ if __name__ == "__main__":
     parser.add_argument("--image-size", type=int, choices=[256, 512], default=256)
     parser.add_argument("--num-classes", type=int, default=1000)
     parser.add_argument("--epochs", type=int, default=1400)
-    parser.add_argument("--global-batch-size", type=int, default=1024)
+    parser.add_argument("--global-batch-size", type=int, default=256)
     parser.add_argument("--global-seed", type=int, default=0)
     parser.add_argument("--vae", type=str, choices=["ema", "mse"], default="ema")  # Choice doesn't affect training
     parser.add_argument("--num-workers", type=int, default=32)
     parser.add_argument("--log-every", type=int, default=100)
-    parser.add_argument("--ckpt-every", type=int, default=2_000)
+    parser.add_argument("--ckpt-every", type=int, default=20_000)
     parser.add_argument("--resume", type=str, default=None)
     
     # Simplified Mixed Precision Argument for BF16 only
