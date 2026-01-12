@@ -270,4 +270,4 @@ if __name__ == "__main__":
     args = parser.parse_args()
     main(args)
 
-# torchrun --nnodes=1 --nproc_per_node=4 train_feat.py --model DiT-B/2 --features-path /path/to/imagenet_latent/train
+# torchrun --nnodes=1 --nproc_per_node=4 train_feat.py --model DiT-B/2 --features-path //work/c30778/imagenet_latent/train
