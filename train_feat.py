@@ -268,8 +268,8 @@ if __name__ == "__main__":
     parser.add_argument("--vae", type=str, choices=["ema", "mse"], default="ema") 
     parser.add_argument("--num-workers", type=int, default=4)
     parser.add_argument("--log-every", type=int, default=100)
-    parser.add_argument("--ckpt-every", type=int, default=20_000)
+    parser.add_argument("--ckpt-every", type=int, default=50_000)
     args = parser.parse_args()
     main(args)
 
-# torchrun --nnodes=1 --nproc_per_node=4 train_feat.py --model DiT-B/2 --features-path /work/c30778/dataset/dit_feat/train
+# torchrun --nnodes=1 --nproc_per_node=4 train_feat.py --model DiT-B/2 --features-path /work/c30778/dataset/dit_feat_fix/train
