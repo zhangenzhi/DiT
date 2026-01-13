@@ -145,14 +145,13 @@ def main(args):
         input_size=latent_size,
         num_classes=args.num_classes
     )
-    # Note that parameter initialization is done within the DiT constructor
-    ema = deepcopy(model).to(device)  # Create an EMA of the model for use after training
-    requires_grad(ema, False)
-    
     model = model.to(device)
     if rank == 0:
         logger.info("Compiling model with torch.compile...")
     model = torch.compile(model, mode="default")
+    # Note that parameter initialization is done within the DiT constructor
+    ema = deepcopy(model).to(device)  # Create an EMA of the model for use after training
+    requires_grad(ema, False)
     model = DDP(model, device_ids=[rank])
     diffusion = create_diffusion(timestep_respacing="")  # default: 1000 steps, linear noise schedule
     # vae = AutoencoderKL.from_pretrained(f"stabilityai/sd-vae-ft-{args.vae}").to(device)
