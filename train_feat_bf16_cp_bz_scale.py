@@ -242,7 +242,7 @@ def main(args):
             loss.backward()
             opt.step()
             scheduler.step() # Update LR per step
-            update_ema(ema, model.module, decay=0.9995)
+            update_ema(ema, model.module, decay=0.999)
 
             # Log loss values:
             running_loss += loss.item()
