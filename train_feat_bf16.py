@@ -208,7 +208,7 @@ def main(args):
             y = y.to(device)
             t = torch.randint(0, diffusion.num_timesteps, (x.shape[0],), device=device)
             model_kwargs = dict(y=y)
-            with autocast(enabled="bf16", dtype=torch.bfloat16):
+            with autocast(enabled=True, dtype=torch.bfloat16):
                 loss_dict = diffusion.training_losses(model, x, t, model_kwargs)
                 loss = loss_dict["loss"].mean()
             opt.zero_grad()
