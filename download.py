@@ -24,23 +24,8 @@ def find_model(model_name):
     else:  # Load a custom DiT checkpoint:
         assert os.path.isfile(model_name), f'Could not find DiT checkpoint at {model_name}'
         checkpoint = torch.load(model_name, map_location=lambda storage, loc: storage, weights_only=False)
-        
-        # 处理 EMA 权重
         if "ema" in checkpoint:  # supports checkpoints from train.py
             checkpoint = checkpoint["ema"]
-            
-        # --- 修复代码开始: 去除 _orig_mod. 前缀 ---
-        # 检查是否包含由 torch.compile 引入的 _orig_mod. 前缀
-        new_state_dict = {}
-        for k, v in checkpoint.items():
-            if k.startswith("_orig_mod."):
-                # 去掉 "_orig_mod." (长度为 10)
-                new_state_dict[k[10:]] = v
-            else:
-                new_state_dict[k] = v
-        checkpoint = new_state_dict
-        # --- 修复代码结束 ---
-
         return checkpoint
 
 
