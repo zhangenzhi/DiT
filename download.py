@@ -24,7 +24,14 @@ def find_model(model_name):
     else:  # Load a custom DiT checkpoint:
         assert os.path.isfile(model_name), f'Could not find DiT checkpoint at {model_name}'
         checkpoint = torch.load(model_name, map_location=lambda storage, loc: storage, weights_only=False)
-        if "ema" in checkpoint:  # supports checkpoints from train.py
+        # if "ema" in checkpoint:  # supports checkpoints from train.py
+        #     checkpoint = checkpoint["ema"]
+    
+        if "model" in checkpoint:  # 优先加载主模型 model
+            print("正在加载主模型 (Non-EMA)...")
+            checkpoint = checkpoint["model"]
+        elif "ema" in checkpoint:
+            print("主模型未找到，加载 EMA...")
             checkpoint = checkpoint["ema"]
         return checkpoint
 
