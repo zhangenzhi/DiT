@@ -25,6 +25,7 @@ from time import time
 import argparse
 import logging
 import os
+import math  # Added for cosine calculation
 from torch.cuda.amp import autocast
 
 from models import DiT_models
@@ -157,12 +158,9 @@ def main(args):
     # vae = AutoencoderKL.from_pretrained(f"stabilityai/sd-vae-ft-{args.vae}").to(device)
     logger.info(f"DiT Parameters: {sum(p.numel() for p in model.parameters()):,}")
 
-    # Setup optimizer (we used default Adam betas=(0.9, 0.999) and a constant learning rate of 1e-4 in our paper):
-    opt = torch.optim.AdamW(model.parameters(), lr=4*1e-4, weight_decay=0)
-
-    # # Setup data:
+    # Setup data (Moved before optimizer to calculate total steps):
     transform = transforms.Compose([
-        LatentFlip(p=0.5) # 对 Latent 进行水平翻转增强
+        LatentFlip(p=0.5)
     ])
     dataset = DatasetFolder(
         root=args.features_path, 
@@ -187,6 +185,31 @@ def main(args):
         drop_last=True
     )
     logger.info(f"Dataset contains {len(dataset):,} latent images ({args.features_path})")
+
+    # Calculate LR and Steps:
+    # 1. Linear Scaling Rule: lr = base_lr * (global_batch_size / 256)
+    base_lr = 1e-4 * (args.global_batch_size / 256)
+    
+    # 2. Setup Optimizer
+    opt = torch.optim.AdamW(model.parameters(), lr=base_lr, weight_decay=0)
+
+    # 3. Setup Scheduler (Warmup + Cosine Decay)
+    steps_per_epoch = len(dataset) // args.global_batch_size
+    total_steps = steps_per_epoch * args.epochs
+    warmup_steps = int(steps_per_epoch * args.warmup_epochs)
+
+    logger.info(f"Base LR: {base_lr:.2e}, Total Steps: {total_steps}, Warmup Steps: {warmup_steps}")
+
+    def lr_lambda(current_step):
+        if current_step < warmup_steps:
+            # Linear warmup: 0 -> 1
+            return float(current_step) / float(max(1, warmup_steps))
+        else:
+            # Cosine decay: 1 -> 0
+            progress = float(current_step - warmup_steps) / float(max(1, total_steps - warmup_steps))
+            return 0.5 * (1.0 + math.cos(math.pi * progress))
+
+    scheduler = torch.optim.lr_scheduler.LambdaLR(opt, lr_lambda)
 
     # Prepare models for training:
     update_ema(ema, model.module, decay=0)  # Ensure EMA is initialized with synced weights
@@ -218,7 +241,8 @@ def main(args):
             opt.zero_grad()
             loss.backward()
             opt.step()
-            update_ema(ema, model.module, decay=0.9995)
+            scheduler.step() # Update LR per step
+            update_ema(ema, model.module, decay=0.999)
 
             # Log loss values:
             running_loss += loss.item()
@@ -233,7 +257,11 @@ def main(args):
                 avg_loss = torch.tensor(running_loss / log_steps, device=device)
                 dist.all_reduce(avg_loss, op=dist.ReduceOp.SUM)
                 avg_loss = avg_loss.item() / dist.get_world_size()
-                logger.info(f"(step={train_steps:07d}) Train Loss: {avg_loss:.4f}, Train Steps/Sec: {steps_per_sec:.2f}")
+                
+                # Get current LR
+                current_lr = opt.param_groups[0]["lr"]
+                
+                logger.info(f"(step={train_steps:07d}) Train Loss: {avg_loss:.4f}, LR: {current_lr:.2e}, Train Steps/Sec: {steps_per_sec:.2f}")
                 # Reset monitoring variables:
                 running_loss = 0
                 log_steps = 0
@@ -269,12 +297,13 @@ if __name__ == "__main__":
     parser.add_argument("--image-size", type=int, choices=[256, 512], default=256)
     parser.add_argument("--num-classes", type=int, default=1000)
     parser.add_argument("--epochs", type=int, default=1400)
-    parser.add_argument("--global-batch-size", type=int, default=1024)
+    parser.add_argument("--global-batch-size", type=int, default=4096)
     parser.add_argument("--global-seed", type=int, default=0)
     parser.add_argument("--vae", type=str, choices=["ema", "mse"], default="ema") 
     parser.add_argument("--num-workers", type=int, default=32)
     parser.add_argument("--log-every", type=int, default=100)
     parser.add_argument("--ckpt-every", type=int, default=10_000)
+    parser.add_argument("--warmup-epochs", type=int, default=5, help="Number of epochs for learning rate warmup")
     args = parser.parse_args()
     main(args)
 
