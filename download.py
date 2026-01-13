@@ -27,7 +27,7 @@ def find_model(model_name):
         if "ema" in checkpoint:  # supports checkpoints from train.py
             checkpoint = checkpoint["ema"]
     
-        # if "model" in checkpoint:  # 优先加载主模型 model
+        # if "model" in checkpoint: 
         #     print("正在加载主模型 (Non-EMA)...")
         #     checkpoint = checkpoint["model"]
         # elif "ema" in checkpoint:
