@@ -75,4 +75,5 @@ mpirun -np 4 \
     --rdzv_id=$PBS_JOBID \
     --rdzv_backend=c10d \
     --rdzv_endpoint=$MASTER_ADDR:$MASTER_PORT \
-    ./train_feat_bf16_cp_bz_scale.py --model DiT-XL/2 --features-path /work/c30778/dataset/dit_feat_fix/train --resume ./results/035-DiT-XL-2/checkpoints/0040000.pt
+    ./train_feat_bf16_cp_bz_scale.py --model DiT-XL/2 --features-path /work/c30778/dataset/dit_feat_fix/train 
+    # --resume ./results/035-DiT-XL-2/checkpoints/0040000.pt
