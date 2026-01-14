@@ -224,6 +224,7 @@ def main(args):
             logger.warning("Warning: BF16 requested but not supported by this hardware. Performance may degrade or error.")
 
     # Variables for monitoring/logging purposes:
+    start_epoch = 0
     train_steps = 0
     log_steps = 0
     running_loss = 0
