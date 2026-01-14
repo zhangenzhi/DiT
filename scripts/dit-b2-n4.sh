@@ -2,7 +2,7 @@
 #------ qsub option --------#
 #PBS -q lg
 #PBS -l select=4:ngpus=4:mpiprocs=4
-#PBS -l walltime=8:00:00
+#PBS -l walltime=24:00:00
 #PBS -W group_list=c30636
 #PBS -j oe
 
