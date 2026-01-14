@@ -31,7 +31,7 @@ from torch.cuda.amp import autocast
 from models import DiT_models
 from diffusion import create_diffusion
 from diffusers.models import AutoencoderKL
-
+from download import resume_from_checkpoint
 
 #################################################################################
 #                             Training Helper Functions                         #
@@ -199,7 +199,20 @@ def main(args):
     steps_per_epoch = len(dataset) // args.global_batch_size
     total_steps = steps_per_epoch * args.epochs
     warmup_steps = int(steps_per_epoch * args.warmup_epochs)
-
+    
+    # Resume logic
+    steps_per_epoch = len(dataset) // args.global_batch_size
+    if args.resume:
+        start_epoch, train_steps = resume_from_checkpoint(
+            args=args, 
+            model=model, 
+            ema=ema, 
+            opt=opt, 
+            device=device, 
+            logger=logger,
+            steps_per_epoch=steps_per_epoch
+        )
+        
     logger.info(f"Base LR: {base_lr:.2e}, Total Steps: {total_steps}, Warmup Steps: {warmup_steps}")
 
     def lr_lambda(current_step):
@@ -229,7 +242,7 @@ def main(args):
     start_time = time()
 
     logger.info(f"Training for {args.epochs} epochs...")
-    for epoch in range(args.epochs):
+    for epoch in range(start_epoch, args.epochs):
         sampler.set_epoch(epoch)
         logger.info(f"Beginning epoch {epoch}...")
         for x, y in loader:
@@ -242,6 +255,7 @@ def main(args):
                 loss = loss_dict["loss"].mean()
             opt.zero_grad()
             loss.backward()
+            grad_norm = torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
             opt.step()
             scheduler.step() # Update LR per step
             update_ema(ema, model.module, decay=0.9995)
@@ -263,7 +277,7 @@ def main(args):
                 # Get current LR
                 current_lr = opt.param_groups[0]["lr"]
                 
-                logger.info(f"(step={train_steps:07d}) Train Loss: {avg_loss:.4f}, LR: {current_lr:.2e}, Train Steps/Sec: {steps_per_sec:.2f}")
+                logger.info(f"(Step={train_steps:07d}) Train Loss: {avg_loss:.4f}, GNorm: {grad_norm:.2f} , LR: {current_lr:.2e}, Train Steps/Sec: {steps_per_sec:.2f}")
                 # Reset monitoring variables:
                 running_loss = 0
                 log_steps = 0
@@ -306,5 +320,6 @@ if __name__ == "__main__":
     parser.add_argument("--log-every", type=int, default=100)
     parser.add_argument("--ckpt-every", type=int, default=10_000)
     parser.add_argument("--warmup-epochs", type=int, default=20, help="Number of epochs for learning rate warmup")
+    parser.add_argument("--resume", type=str, default=None)
     args = parser.parse_args()
     main(args)

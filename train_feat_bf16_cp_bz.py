@@ -240,6 +240,7 @@ def main(args):
                 loss = loss_dict["loss"].mean()
             opt.zero_grad()
             loss.backward()
+            grad_norm = torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
             opt.step()
             scheduler.step() # Update LR per step
             update_ema(ema, model.module, decay=0.999)
@@ -261,7 +262,7 @@ def main(args):
                 # Get current LR
                 current_lr = opt.param_groups[0]["lr"]
                 
-                logger.info(f"(step={train_steps:07d}) Train Loss: {avg_loss:.4f}, LR: {current_lr:.2e}, Train Steps/Sec: {steps_per_sec:.2f}")
+                logger.info(f"(Step={train_steps:07d}) Train Loss: {avg_loss:.4f}, GNorm: {grad_norm:.2f} , LR: {current_lr:.2e}, Train Steps/Sec: {steps_per_sec:.2f}")
                 # Reset monitoring variables:
                 running_loss = 0
                 log_steps = 0
