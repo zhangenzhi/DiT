@@ -30,7 +30,7 @@ from torch.cuda.amp import autocast
 from models import DiT_models
 from diffusion import create_diffusion
 from diffusers.models import AutoencoderKL
-
+from download import resume_from_checkpoint
 
 #################################################################################
 #                             Training Helper Functions                         #
@@ -202,9 +202,22 @@ def main(args):
     log_steps = 0
     running_loss = 0
     start_time = time()
-
+    
+    # Resume logic
+    steps_per_epoch = len(dataset) // args.global_batch_size
+    if args.resume:
+        start_epoch, train_steps = resume_from_checkpoint(
+            args=args, 
+            model=model, 
+            ema=ema, 
+            opt=opt, 
+            device=device, 
+            logger=logger,
+            steps_per_epoch=steps_per_epoch
+        )
+        
     logger.info(f"Training for {args.epochs} epochs...")
-    for epoch in range(args.epochs):
+    for epoch in range(start_epoch, args.epochs):
         sampler.set_epoch(epoch)
         logger.info(f"Beginning epoch {epoch}...")
         for x, y in loader:
