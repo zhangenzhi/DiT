@@ -190,7 +190,7 @@ def main(args):
 
     # Calculate LR and Steps:
     # 1. Linear Scaling Rule: lr = base_lr * (global_batch_size / 256)
-    base_lr = 1e-4 * (args.global_batch_size / 256)
+    base_lr = 0.5 * 1e-4 * (args.global_batch_size / 256) 
     
     # 2. Setup Optimizer
     opt = torch.optim.AdamW(model.parameters(), lr=base_lr, weight_decay=0)
@@ -200,18 +200,6 @@ def main(args):
     total_steps = steps_per_epoch * args.epochs
     warmup_steps = int(steps_per_epoch * args.warmup_epochs)
     
-    # Resume logic
-    steps_per_epoch = len(dataset) // args.global_batch_size
-    if args.resume:
-        start_epoch, train_steps = resume_from_checkpoint(
-            args=args, 
-            model=model, 
-            ema=ema, 
-            opt=opt, 
-            device=device, 
-            logger=logger,
-            steps_per_epoch=steps_per_epoch
-        )
         
     logger.info(f"Base LR: {base_lr:.2e}, Total Steps: {total_steps}, Warmup Steps: {warmup_steps}")
 
@@ -239,6 +227,19 @@ def main(args):
     train_steps = 0
     log_steps = 0
     running_loss = 0
+    
+    # Resume logic
+    if args.resume:
+        start_epoch, train_steps = resume_from_checkpoint(
+            args=args, 
+            model=model, 
+            ema=ema, 
+            opt=opt, 
+            device=device, 
+            logger=logger,
+            steps_per_epoch=steps_per_epoch
+        )
+        
     start_time = time()
 
     logger.info(f"Training for {args.epochs} epochs...")
@@ -319,7 +320,7 @@ if __name__ == "__main__":
     parser.add_argument("--num-workers", type=int, default=32)
     parser.add_argument("--log-every", type=int, default=100)
     parser.add_argument("--ckpt-every", type=int, default=10_000)
-    parser.add_argument("--warmup-epochs", type=int, default=20, help="Number of epochs for learning rate warmup")
+    parser.add_argument("--warmup-epochs", type=int, default=10, help="Number of epochs for learning rate warmup")
     parser.add_argument("--resume", type=str, default=None)
     args = parser.parse_args()
     main(args)
