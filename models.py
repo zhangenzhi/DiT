@@ -150,7 +150,7 @@ class DiT(nn.Module):
         self,
         input_size=32,
         patch_size=2,
-        in_channels=4,
+        in_channels=4,  # 支持动态修改通道数 (SD3=16, SDXL=4)
         hidden_size=1152,
         depth=28,
         num_heads=16,
@@ -166,6 +166,8 @@ class DiT(nn.Module):
         self.patch_size = patch_size
         self.num_heads = num_heads
 
+        # PatchEmbed 接受 input_size, patch_size, in_chans, embed_dim
+        # 注意：这里我们传递 in_channels 给 timm 的 PatchEmbed
         self.x_embedder = PatchEmbed(input_size, patch_size, in_channels, hidden_size, bias=True)
         self.t_embedder = TimestepEmbedder(hidden_size)
         self.y_embedder = LabelEmbedder(num_classes, hidden_size, class_dropout_prob)
@@ -255,11 +257,13 @@ class DiT(nn.Module):
         half = x[: len(x) // 2]
         combined = torch.cat([half, half], dim=0)
         model_out = self.forward(combined, t, y)
-        # For exact reproducibility reasons, we apply classifier-free guidance on only
-        # three channels by default. The standard approach to cfg applies it to all channels.
-        # This can be done by uncommenting the following line and commenting-out the line following that.
-        # eps, rest = model_out[:, :self.in_channels], model_out[:, self.in_channels:]
-        eps, rest = model_out[:, :3], model_out[:, 3:]
+        
+        # --- 修复：根据 in_channels 动态截取，而不是写死 3 或 4 ---
+        # 如果 learn_sigma=True, model_out 的通道数是 2 * in_channels
+        # 前 half_channels 是预测的噪声 eps，后 half_channels 是方差相关量
+        
+        eps, rest = model_out[:, :self.in_channels], model_out[:, self.in_channels:]
+        
         cond_eps, uncond_eps = torch.split(eps, len(eps) // 2, dim=0)
         half_eps = uncond_eps + cfg_scale * (cond_eps - uncond_eps)
         eps = torch.cat([half_eps, half_eps], dim=0)
