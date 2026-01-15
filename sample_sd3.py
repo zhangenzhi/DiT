@@ -145,7 +145,7 @@ if __name__ == "__main__":
 
 # python sample_sd3.py \
 #   --model DiT-B/2 \
-#   --ckpt ./results/019-DiT-B-2-ch16/checkpoints/0010000.pt \
+#   --ckpt ./results/019-DiT-B-2-ch16/checkpoints/0100000.pt \
 #   --vae-path "stabilityai/stable-diffusion-3-medium-diffusers" \
 #   --vae-type sd3 \
 #   --image-size 256
