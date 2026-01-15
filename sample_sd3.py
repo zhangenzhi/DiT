@@ -53,7 +53,7 @@ def main(args):
         in_channels=vae_channels  # <--- 关键：初始化正确的通道数
     ).to(device)
     
-    # model = torch.compile(model, mode="default") # 调试时建议先注释掉 compile
+    model = torch.compile(model, mode="default") # 调试时建议先注释掉 compile
     
     # Load Checkpoint
     ckpt_path = args.ckpt or f"DiT-XL-2-{args.image_size}x{args.image_size}.pt"
@@ -145,7 +145,7 @@ if __name__ == "__main__":
 
 # python sample_sd3.py \
 #   --model DiT-B/2 \
-#   --ckpt ./results/013-DiT-B-2-ch16/checkpoints/0045000.pt \
+#   --ckpt ./results/019-DiT-B-2-ch16/checkpoints/0010000.pt \
 #   --vae-path "stabilityai/stable-diffusion-3-medium-diffusers" \
 #   --vae-type sd3 \
 #   --image-size 256
