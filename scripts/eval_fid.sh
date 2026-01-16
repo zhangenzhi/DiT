@@ -1,6 +1,6 @@
 #!/bin/sh
 #------ qsub option --------#
-#PBS -q lg
+#PBS -q sg
 #PBS -l select=1:ngpus=4:mpiprocs=4
 #PBS -l walltime=8:00:00
 #PBS -W group_list=c30636
@@ -76,6 +76,6 @@ mpirun -np 1 \
     --rdzv_backend=c10d \
     --rdzv_endpoint=$MASTER_ADDR:$MASTER_PORT \
     ./evaluate_fid_ddp.py --real-data-dir \
-    /work/c30778/dataset/imagenet/val --model DiT-XL/2 --num-samples 10000 \
-    --ckpt-dir ./results/038-DiT-XL-2/checkpoints
+    /work/c30778/dataset/imagenet/val --model DiT-B/2 --num-samples 10000 \
+    --ckpt-dir ./results/029-DiT-B-2/checkpoints
     
