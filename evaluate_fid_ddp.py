@@ -53,7 +53,7 @@ def main(args):
         input_size=latent_size,
         num_classes=args.num_classes
     ).to(device)
-    
+    model = torch.compile(model, mode="default")
     ckpt_path = args.ckpt or f"DiT-XL-2-{args.image_size}x{args.image_size}.pt"
     state_dict = find_model(ckpt_path)
     model.load_state_dict(state_dict)
@@ -199,4 +199,4 @@ if __name__ == "__main__":
     args = parser.parse_args()
     main(args)
 
-# torchrun --nnodes=1 --nproc_per_node=4 sample_ddp.py --real-data-dir /work/c30778/dataset/imagenet/val --model DiT-B/2 --num-fid-samples 10000 --ckpt ./results/039-DiT-B-2-MinSNR/checkpoints/0410000.pt
+# torchrun --nnodes=1 --nproc_per_node=4 evaluate_fid_ddp.py --real-data-dir /work/c30778/dataset/imagenet/val --model DiT-B/2 --num-samples 10000 --ckpt ./results/039-DiT-B-2-MinSNR/checkpoints/0410000.pt
