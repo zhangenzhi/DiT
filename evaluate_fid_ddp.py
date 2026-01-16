@@ -49,14 +49,30 @@ def main(args):
     torch.manual_seed(args.seed + rank)
     torch.set_grad_enabled(False)
 
-    # --- Prepare Checkpoints List ---
+    # --- Prepare Checkpoints List & Results Path ---
     checkpoints = []
+    results_file_path = args.results_file
+
     if args.ckpt_dir:
         # 查找目录下所有的 .pt 文件并排序
         search_path = os.path.join(args.ckpt_dir, "*.pt")
         checkpoints = sorted(glob.glob(search_path))
         if rank == 0:
             print(f"Found {len(checkpoints)} checkpoints in {args.ckpt_dir}")
+        
+        # 智能定位保存路径：如果 ckpt_dir 是 ".../checkpoints"，则保存到上一级 (log.txt 所在位置)
+        if not os.path.isabs(results_file_path):
+            abs_ckpt_dir = os.path.abspath(args.ckpt_dir)
+            if os.path.basename(abs_ckpt_dir) == "checkpoints":
+                exp_dir = os.path.dirname(abs_ckpt_dir)
+                results_file_path = os.path.join(exp_dir, args.results_file)
+            else:
+                # 否则保存在 ckpt_dir 同级
+                results_file_path = os.path.join(abs_ckpt_dir, args.results_file)
+            
+            if rank == 0:
+                print(f"FID results will be saved to: {results_file_path}")
+
     elif args.ckpt:
         checkpoints = [args.ckpt]
     else:
@@ -69,10 +85,9 @@ def main(args):
         input_size=latent_size,
         num_classes=args.num_classes
     ).to(device)
-    model = torch.compile(model, mode="default")
     # H100 核心优化：转为 bfloat16
     model = model.to(dtype=torch.bfloat16)
-    
+    model = torch.compile(model, mode="default")
     diffusion = create_diffusion(str(args.num_sampling_steps))
     
     # --- Load VAE Model (Convert to BF16) ---
@@ -192,7 +207,7 @@ def main(args):
             print(f"FID Score for {os.path.basename(current_ckpt_path)}: {score_val:.4f}")
             
             # 写入结果文件 (追加模式)
-            with open(args.results_file, "a") as f:
+            with open(results_file_path, "a") as f:
                 f.write(f"{current_ckpt_path}\t{score_val:.4f}\n")
 
         # 确保所有进程同步进入下一个 checkpoint
@@ -218,10 +233,12 @@ if __name__ == "__main__":
     parser.add_argument("--results-file", type=str, default="fid_results.txt", help="File to append FID results")
 
     parser.add_argument("--num-samples", type=int, default=10000)
-    parser.add_argument("--batch-size", type=int, default=128)
+    parser.add_argument("--batch-size", type=int, default=32)
     parser.add_argument("--real-data-dir", type=str, required=True)
 
     args = parser.parse_args()
     main(args)
+
+
 
 # torchrun --nnodes=1 --nproc_per_node=4 evaluate_fid_ddp.py --real-data-dir /work/c30778/dataset/imagenet/val --model DiT-B/2 --num-samples 10000 --ckpt-dir ./results/039-DiT-B-2-MinSNR/checkpoints
