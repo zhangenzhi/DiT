@@ -70,6 +70,7 @@ def main(args):
         input_size=latent_size,
         num_classes=args.num_classes
     ).to(device)
+    model = torch.compile(model, mode="default")
     # Auto-download a pre-trained model or load a custom DiT checkpoint from train.py:
     ckpt_path = args.ckpt or f"DiT-XL-2-{args.image_size}x{args.image_size}.pt"
     state_dict = find_model(ckpt_path)
@@ -165,4 +166,4 @@ if __name__ == "__main__":
     args = parser.parse_args()
     main(args)
     
-# torchrun --nnodes=1 --nproc_per_node=N sample_ddp.py --model DiT-XL/2 --num-fid-samples 50000
+# torchrun --nnodes=1 --nproc_per_node=4 sample_ddp.py --model DiT-B/2 --num-fid-samples 50000 --ckpt ./results/039-DiT-B-2-MinSNR/checkpoints/0410000.pt
