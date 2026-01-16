@@ -191,7 +191,7 @@ def main(args):
 
     # Optimizer & Scheduler
     base_lr = 1e-4 * (args.global_batch_size / 256)
-    opt = torch.optim.AdamW(model.parameters(), lr=base_lr, weight_decay=0)
+    opt = torch.optim.AdamW(model.parameters(), lr=base_lr, betas=(0.9, 0.995), weight_decay=0.0)
 
     steps_per_epoch = len(dataset) // args.global_batch_size
     total_steps = steps_per_epoch * args.epochs
@@ -333,7 +333,7 @@ if __name__ == "__main__":
     parser.add_argument("--image-size", type=int, choices=[256, 512], default=256)
     parser.add_argument("--num-classes", type=int, default=1000)
     parser.add_argument("--epochs", type=int, default=400)
-    parser.add_argument("--global-batch-size", type=int, default=3072)
+    parser.add_argument("--global-batch-size", type=int, default=1024)
     parser.add_argument("--global-seed", type=int, default=0)
     parser.add_argument("--vae", type=str, choices=["ema", "mse"], default="ema") 
     parser.add_argument("--num-workers", type=int, default=32)
