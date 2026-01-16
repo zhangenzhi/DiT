@@ -233,7 +233,7 @@ if __name__ == "__main__":
     parser.add_argument("--results-file", type=str, default="fid_results.txt", help="File to append FID results")
 
     parser.add_argument("--num-samples", type=int, default=10000)
-    parser.add_argument("--batch-size", type=int, default=32)
+    parser.add_argument("--batch-size", type=int, default=128)
     parser.add_argument("--real-data-dir", type=str, required=True)
 
     args = parser.parse_args()
