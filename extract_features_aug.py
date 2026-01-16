@@ -191,7 +191,7 @@ if __name__ == "__main__":
     # 如果显存不够，请调小这个值。
     parser.add_argument("--batch-size", type=int, default=1024) 
     
-    parser.add_argument("--num-workers", type=int, default=32)
+    parser.add_argument("--num-workers", type=int, default=8)
     parser.add_argument("--global-seed", type=int, default=0)
     
     # 新增增强参数
