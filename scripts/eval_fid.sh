@@ -76,6 +76,6 @@ mpirun -np 1 \
     --rdzv_backend=c10d \
     --rdzv_endpoint=$MASTER_ADDR:$MASTER_PORT \
     ./evaluate_fid_ddp.py --real-data-dir \
-    /work/c30778/dataset/imagenet/val --model DiT-B/2 --num-samples 10000 \
+    /work/c30778/dataset/imagenet/val --model DiT-XL/2 --num-samples 10000 \
     --ckpt-dir ./results/038-DiT-XL-2/checkpoints
     
