@@ -158,6 +158,8 @@ def main(args):
     model = DDP(model, device_ids=[local_rank])
     diffusion = create_diffusion(timestep_respacing="")  # default: 1000 steps, linear noise schedule
     # vae = AutoencoderKL.from_pretrained(f"stabilityai/sd-vae-ft-{args.vae}").to(device)
+    
+    alphas_cumprod = torch.from_numpy(diffusion.alphas_cumprod).to(device, dtype=torch.float32)
     logger.info(f"DiT Parameters: {sum(p.numel() for p in model.parameters()):,}")
 
     # Setup data (Moved before optimizer to calculate total steps):
@@ -253,8 +255,27 @@ def main(args):
             t = torch.randint(0, diffusion.num_timesteps, (x.shape[0],), device=device)
             model_kwargs = dict(y=y)
             with autocast(enabled=True, dtype=torch.bfloat16):
+                # diffusion.training_losses 返回的是未 reduce 的 loss dict (通常 shape 为 [B])
                 loss_dict = diffusion.training_losses(model, x, t, model_kwargs)
-                loss = loss_dict["loss"].mean()
+                raw_loss_batch = loss_dict["loss"]
+                
+                # --- Min-SNR 计算核心逻辑 ---
+                # 1. 计算当前 Batch 每个 t 的 SNR
+                # SNR(t) = alpha_bar_t / (1 - alpha_bar_t)
+                cur_alpha = alphas_cumprod[t]
+                cur_sigma_sq = 1.0 - cur_alpha
+                # 避免除以 0 (虽然 t 通常不到 T, 但为了安全加个 eps)
+                snr = cur_alpha / (cur_sigma_sq + 1e-8)
+                
+                # 2. 计算权重: min(SNR, gamma) / SNR
+                # 对于 epsilon 预测，这就是标准的 Min-SNR 公式
+                snr_gamma = args.snr_gamma
+                weights = torch.clamp(snr, max=snr_gamma) / snr
+                
+                # 3. 应用权重并计算最终 Loss
+                # 注意 raw_loss_batch 是 [B]，weights 是 [B]，直接相乘
+                snr_loss_batch = raw_loss_batch * weights
+                loss = snr_loss_batch.mean()
             opt.zero_grad()
             loss.backward()
             grad_norm = torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
