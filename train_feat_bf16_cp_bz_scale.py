@@ -192,7 +192,7 @@ def main(args):
 
     # Calculate LR and Steps:
     # 1. Linear Scaling Rule: lr = base_lr * (global_batch_size / 256)
-    base_lr = 0.5 * 1e-4 * (args.global_batch_size / 256) 
+    base_lr = 0.7 * 1e-4 * (args.global_batch_size / 256) 
     
     # 2. Setup Optimizer
     opt = torch.optim.AdamW(model.parameters(), lr=base_lr, weight_decay=0)
