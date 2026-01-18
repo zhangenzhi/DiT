@@ -344,5 +344,7 @@ if __name__ == "__main__":
     parser.add_argument("--ckpt-every", type=int, default=10_000)
     parser.add_argument("--warmup-epochs", type=int, default=10, help="Number of epochs for learning rate warmup")
     parser.add_argument("--resume", type=str, default=None)
+    # --- 新增参数 ---
+    parser.add_argument("--snr-gamma", type=float, default=5.0, help="Min-SNR weighting gamma")
     args = parser.parse_args()
     main(args)
