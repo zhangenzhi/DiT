@@ -23,6 +23,5 @@ echo "Modules loaded."
 
 echo "Launching distributed training..."
 srun -N 4 -n 32 --ntasks-per-node 8 python ./extract_features.py \
-    --model DiT-XL/2 \
     --data-path /lustre/orion/nro108/world-shared/enzhi/dataset/imagenet \
     --features-path /lustre/orion/nro108/world-shared/enzhi/dataset/ 
