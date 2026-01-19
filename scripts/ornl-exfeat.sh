@@ -1,6 +1,6 @@
 #!/bin/bash
 #SBATCH -A lrn075
-#SBATCH -o imagenet_shf-vit-b.o%J
+#SBATCH -o exfeat_IN1K.o%J
 #SBATCH -t 02:00:00
 #SBATCH -N 4
 #SBATCH -p batch
