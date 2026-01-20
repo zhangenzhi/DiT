@@ -347,4 +347,5 @@ if __name__ == "__main__":
     args = parser.parse_args()
     main(args)
 
-# torchrun --nnodes=1 --nproc_per_node=4 train_feat_bf16_cp_bz_snr.py --model DiT-B/2 --features-path /work/c30778/dataset/dit_feat_fix/train
+# torchrun --nnodes=1 --nproc_per_node=4 train_feat_bf16_cp_bz_snr.py --model DiT-B/2 --features-path /work/c30636/dataset/dit_feat_aug/train 
+# /work/c30778/dataset/dit_feat_fix/train
