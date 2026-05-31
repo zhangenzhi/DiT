@@ -51,10 +51,16 @@ unset __conda_setup
 cd /work/c30636/DiT
 conda activate DiT
 
+# DINOv2 权重已缓存到 ~/.cache/huggingface, 强制离线避免计算节点无外网导致失败
+export HF_HUB_OFFLINE=1
+export TRANSFORMERS_OFFLINE=1
+
 # 5. 启动命令: 提取 VAE 潜变量 + DINOv2 特征 (REPA 对齐目标)
 mpirun -np 1 \
     --map-by ppr:1:node \
     --bind-to none \
+    -x HF_HUB_OFFLINE \
+    -x TRANSFORMERS_OFFLINE \
     -x MASTER_ADDR \
     -x MASTER_PORT \
     -x GLOO_SOCKET_IFNAME \
