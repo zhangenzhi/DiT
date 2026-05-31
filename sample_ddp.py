@@ -14,6 +14,7 @@ For a simple single-GPU/CPU sampling script, see sample.py.
 import torch
 import torch.distributed as dist
 from models import DiT_models
+from models_repa import DiT_REPA_models
 from download import find_model
 from diffusion import create_diffusion
 from diffusers.models import AutoencoderKL
@@ -66,15 +67,27 @@ def main(args):
 
     # Load model:
     latent_size = args.image_size // 8
-    model = DiT_models[args.model](
-        input_size=latent_size,
-        num_classes=args.num_classes
-    ).to(device)
+    if args.repa:
+        # REPA checkpoint: build DiT_REPA (eval-mode forward returns the tensor
+        # only, so sampling is unaffected) and load non-strictly (the projector
+        # head is unused at inference time).
+        model = DiT_REPA_models[args.model](
+            input_size=latent_size,
+            num_classes=args.num_classes,
+            z_dim=args.z_dim,
+            proj_dim=args.proj_dim,
+            align_depth=args.align_depth,
+        ).to(device)
+    else:
+        model = DiT_models[args.model](
+            input_size=latent_size,
+            num_classes=args.num_classes
+        ).to(device)
     model = torch.compile(model, mode="default")
     # Auto-download a pre-trained model or load a custom DiT checkpoint from train.py:
     ckpt_path = args.ckpt or f"DiT-XL-2-{args.image_size}x{args.image_size}.pt"
     state_dict = find_model(ckpt_path)
-    model.load_state_dict(state_dict)
+    model.load_state_dict(state_dict, strict=not args.repa)
     model.eval()  # important!
     diffusion = create_diffusion(str(args.num_sampling_steps))
     vae = AutoencoderKL.from_pretrained(f"stabilityai/sd-vae-ft-{args.vae}").to(device)
@@ -163,6 +176,11 @@ if __name__ == "__main__":
                         help="By default, use TF32 matmuls. This massively accelerates sampling on Ampere GPUs.")
     parser.add_argument("--ckpt", type=str, default=None,
                         help="Optional path to a DiT checkpoint (default: auto-download a pre-trained DiT-XL/2 model).")
+    # --- REPA checkpoint support ---
+    parser.add_argument("--repa", action="store_true", help="Checkpoint is a REPA-trained DiT_REPA model.")
+    parser.add_argument("--z-dim", type=int, default=768)
+    parser.add_argument("--proj-dim", type=int, default=2048)
+    parser.add_argument("--align-depth", type=int, default=8)
     args = parser.parse_args()
     main(args)
     

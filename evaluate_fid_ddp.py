@@ -17,6 +17,7 @@ from diffusion import create_diffusion
 from diffusers.models import AutoencoderKL
 from download import find_model
 from models import DiT_models
+from models_repa import DiT_REPA_models
 import argparse
 import os
 import math
@@ -81,10 +82,19 @@ def main(args):
 
     # --- Load Model Architecture (Once) ---
     latent_size = args.image_size // 8
-    model = DiT_models[args.model](
-        input_size=latent_size,
-        num_classes=args.num_classes
-    ).to(device)
+    if args.repa:
+        model = DiT_REPA_models[args.model](
+            input_size=latent_size,
+            num_classes=args.num_classes,
+            z_dim=args.z_dim,
+            proj_dim=args.proj_dim,
+            align_depth=args.align_depth,
+        ).to(device)
+    else:
+        model = DiT_models[args.model](
+            input_size=latent_size,
+            num_classes=args.num_classes
+        ).to(device)
     # H100 核心优化：转为 bfloat16
     model = model.to(dtype=torch.bfloat16)
     model = torch.compile(model, mode="default")
@@ -130,7 +140,7 @@ def main(args):
             print(f"\n[{i+1}/{len(checkpoints)}] Processing checkpoint: {current_ckpt_path}")
         
         state_dict = find_model(current_ckpt_path)
-        model.load_state_dict(state_dict)
+        model.load_state_dict(state_dict, strict=not args.repa)
         model.eval()
 
         # 2. Reset FID State & Data Iterator
@@ -235,6 +245,12 @@ if __name__ == "__main__":
     parser.add_argument("--num-samples", type=int, default=10000)
     parser.add_argument("--batch-size", type=int, default=128)
     parser.add_argument("--real-data-dir", type=str, required=True)
+
+    # --- REPA checkpoint support ---
+    parser.add_argument("--repa", action="store_true", help="Checkpoints are REPA-trained DiT_REPA models.")
+    parser.add_argument("--z-dim", type=int, default=768)
+    parser.add_argument("--proj-dim", type=int, default=2048)
+    parser.add_argument("--align-depth", type=int, default=8)
 
     args = parser.parse_args()
     main(args)
