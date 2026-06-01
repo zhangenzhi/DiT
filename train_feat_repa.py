@@ -283,7 +283,8 @@ def main(args):
             opt=opt,
             device=device,
             logger=logger,
-            steps_per_epoch=steps_per_epoch
+            steps_per_epoch=steps_per_epoch,
+            scheduler=scheduler
         )
 
     start_time = time()
@@ -363,6 +364,8 @@ def main(args):
                         "model": model.module.state_dict(),
                         "ema": ema.state_dict(),
                         "opt": opt.state_dict(),
+                        "scheduler": scheduler.state_dict(),
+                        "train_steps": train_steps,
                         "args": args
                     }
                     checkpoint_path = f"{checkpoint_dir}/{train_steps:07d}.pt"

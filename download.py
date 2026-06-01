@@ -52,7 +52,7 @@ def download_model(model_name):
     model = torch.load(local_path, map_location=lambda storage, loc: storage)
     return model
 
-def resume_from_checkpoint(args, model, ema, opt, device, logger, steps_per_epoch=None):
+def resume_from_checkpoint(args, model, ema, opt, device, logger, steps_per_epoch=None, scheduler=None):
     """
     从 Checkpoint 恢复模型状态，包含针对 torch.compile 的智能 Key 匹配逻辑。
     """
@@ -179,6 +179,24 @@ def resume_from_checkpoint(args, model, ema, opt, device, logger, steps_per_epoc
         start_epoch = train_steps // steps_per_epoch
         if dist.get_rank() == 0:
             logger.info(f"Inferring start_epoch={start_epoch} from train_steps={train_steps}")
+
+    # =========================================================
+    # 4. 恢复 LR 调度器 (否则 resume 后 LR 会从头重新 warmup)
+    # =========================================================
+    # 优化器的 param_groups['lr'] 已随 opt.load_state_dict 恢复到存档时的值，
+    # 但调度器是新建的 (last_epoch=0)，若不同步，下一次 scheduler.step() 会把 LR
+    # 拉回 warmup 起点。这里优先用存档的 scheduler 状态，旧 checkpoint 无此字段则
+    # 按 train_steps 快进 (LambdaLR 的 LR 仅由 last_epoch 决定，快进即可对齐曲线)。
+    if scheduler is not None:
+        if "scheduler" in checkpoint:
+            scheduler.load_state_dict(checkpoint["scheduler"])
+            if dist.get_rank() == 0:
+                logger.info(f"Restored LR scheduler state (last_epoch={scheduler.last_epoch}).")
+        else:
+            scheduler.last_epoch = train_steps
+            if dist.get_rank() == 0:
+                logger.info(f"No scheduler state in checkpoint; fast-forwarded LR scheduler "
+                            f"to step {train_steps}.")
 
     if dist.get_rank() == 0:
         logger.info(f"Resumed successfully at Epoch {start_epoch}, Step {train_steps}")
