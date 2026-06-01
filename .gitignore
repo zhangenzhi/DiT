@@ -1,0 +1,13 @@
+# Runtime artifacts — DO NOT let `git clean -fd` wipe these (checkpoints/logs!)
+results/
+outputs/
+samples/
+__pycache__/
+*.pyc
+
+# PBS / scheduler logs
+*.sh.o*
+*.o[0-9]*
+
+# misc
+sample.png
