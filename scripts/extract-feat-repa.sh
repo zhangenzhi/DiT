@@ -1,10 +1,12 @@
 #!/bin/sh
 #------ qsub option --------#
-#PBS -q sg
+#PBS -N repa_extract
+#PBS -q lg
 #PBS -l select=1:ngpus=4:mpiprocs=4
-#PBS -l walltime=36:00:00
-#PBS -W group_list=c30636
+#PBS -l walltime=24:00:00
+#PBS -W group_list=c30746
 #PBS -j oe
+#PBS -o /lustre1/work/c30636/DiT/outputs/pbs_logs/
 
 # 1. 加载模块
 module load gcc ompi
@@ -51,7 +53,8 @@ unset __conda_setup
 cd /work/c30636/DiT
 conda activate DiT
 
-# DINOv2 权重已缓存到 ~/.cache/huggingface, 强制离线避免计算节点无外网导致失败
+# DINOv2 权重已缓存到共享 HF_HOME, 强制离线避免计算节点无外网导致失败
+export HF_HOME=/work/c30636/dataset/hf_cache
 export HF_HUB_OFFLINE=1
 export TRANSFORMERS_OFFLINE=1
 
@@ -59,6 +62,7 @@ export TRANSFORMERS_OFFLINE=1
 mpirun -np 1 \
     --map-by ppr:1:node \
     --bind-to none \
+    -x HF_HOME \
     -x HF_HUB_OFFLINE \
     -x TRANSFORMERS_OFFLINE \
     -x MASTER_ADDR \

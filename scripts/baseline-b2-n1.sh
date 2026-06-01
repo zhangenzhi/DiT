@@ -1,10 +1,12 @@
 #!/bin/sh
 #------ qsub option --------#
+#PBS -N baseline_b2
 #PBS -q lg
 #PBS -l select=1:ngpus=4:mpiprocs=4
 #PBS -l walltime=24:00:00
-#PBS -W group_list=c30636
+#PBS -W group_list=c30746
 #PBS -j oe
+#PBS -o /lustre1/work/c30636/DiT/outputs/pbs_logs/
 
 # 1. 加载模块
 module load gcc ompi
