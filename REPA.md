@@ -70,3 +70,14 @@ torchrun --nproc_per_node=4 evaluate_fid_ddp.py --model DiT-B/2 \
 
 - `--repa-lambda 0.5`, `--align-depth 8`, `--z-dim 768`, `--proj-dim 2048`
 - Encoder: `vit_base_patch14_dinov2.lvd142m` (timm), ImageNet normalization, 224px input.
+
+## Results — REPA vs baseline @ 50k steps (cfg=1.5, 10k samples, vae=ema, ImageNet val)
+
+| Scale       | REPA FID | baseline FID | Δ (relative)   |
+|-------------|----------|--------------|----------------|
+| DiT-B/2     | 54.92    | 64.36        | −9.44 (−15%)   |
+| DiT-XL/2    | 30.29    | 45.90        | −15.6 (−34%)   |
+
+REPA's gain grows with model scale (−15% at B/2 → −34% at XL/2), consistent with
+the paper's finding that representation alignment helps larger DiT/SiT more.
+FID-vs-step curves (every ~50k) launched to quantify the speedup factor.
