@@ -94,6 +94,14 @@ def main(args):
     assert args.cfg_scale >= 1.0, "In almost all cases, cfg_scale be >= 1.0"
     using_cfg = args.cfg_scale > 1.0
 
+    # Optional guidance interval (Kynkaaniemi et al. 2024): cfg only inside [lo, hi].
+    cfg_interval = None
+    if args.guidance_low > 0.0 or args.guidance_high < 1.0:
+        T = diffusion.num_timesteps
+        cfg_interval = (args.guidance_low * T, args.guidance_high * T)
+        if rank == 0:
+            print(f"Guidance interval ON: cfg only for t in [{cfg_interval[0]:.1f}, {cfg_interval[1]:.1f}] of {T}")
+
     # Create folder to save samples:
     model_string_name = args.model.replace("/", "-")
     ckpt_string_name = os.path.basename(args.ckpt).replace(".pt", "") if args.ckpt else "pretrained"
@@ -129,7 +137,7 @@ def main(args):
             z = torch.cat([z, z], 0)
             y_null = torch.tensor([1000] * n, device=device)
             y = torch.cat([y, y_null], 0)
-            model_kwargs = dict(y=y, cfg_scale=args.cfg_scale)
+            model_kwargs = dict(y=y, cfg_scale=args.cfg_scale, cfg_interval=cfg_interval)
             sample_fn = model.forward_with_cfg
         else:
             model_kwargs = dict(y=y)
@@ -181,6 +189,9 @@ if __name__ == "__main__":
     parser.add_argument("--z-dim", type=int, default=768)
     parser.add_argument("--proj-dim", type=int, default=2048)
     parser.add_argument("--align-depth", type=int, default=8)
+    # --- Guidance interval (fractions of the trajectory; default off) ---
+    parser.add_argument("--guidance-low", type=float, default=0.0)
+    parser.add_argument("--guidance-high", type=float, default=1.0)
     args = parser.parse_args()
     main(args)
     

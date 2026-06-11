@@ -247,9 +247,15 @@ class DiT(nn.Module):
         x = self.unpatchify(x)                   # (N, out_channels, H, W)
         return x
 
-    def forward_with_cfg(self, x, t, y, cfg_scale):
+    def forward_with_cfg(self, x, t, y, cfg_scale, cfg_interval=None):
         """
         Forward pass of DiT, but also batches the unconditional forward pass for classifier-free guidance.
+
+        If `cfg_interval=(lo, hi)` is given (in original-timestep units, 0..num_train_steps-1),
+        guidance is applied only when the timestep falls inside [lo, hi]; outside the interval the
+        effective guidance weight is 1.0 (i.e. plain conditional prediction). This is the
+        "guidance interval" trick (Kynkäänniemi et al., 2024), which avoids over-saturation at the
+        highest/lowest noise levels and typically lowers FID.
         """
         # https://github.com/openai/glide-text2im/blob/main/notebooks/text2im.ipynb
         half = x[: len(x) // 2]
@@ -261,7 +267,17 @@ class DiT(nn.Module):
         # eps, rest = model_out[:, :self.in_channels], model_out[:, self.in_channels:]
         eps, rest = model_out[:, :3], model_out[:, 3:]
         cond_eps, uncond_eps = torch.split(eps, len(eps) // 2, dim=0)
-        half_eps = uncond_eps + cfg_scale * (cond_eps - uncond_eps)
+        if cfg_interval is None:
+            half_eps = uncond_eps + cfg_scale * (cond_eps - uncond_eps)
+        else:
+            lo, hi = cfg_interval
+            t_cond = t[: len(t) // 2]  # timesteps for the conditional half
+            w = torch.where(
+                (t_cond >= lo) & (t_cond <= hi),
+                t_cond.new_full((), float(cfg_scale), dtype=cond_eps.dtype),
+                t_cond.new_full((), 1.0, dtype=cond_eps.dtype),
+            ).view(-1, 1, 1, 1)
+            half_eps = uncond_eps + w * (cond_eps - uncond_eps)
         eps = torch.cat([half_eps, half_eps], dim=0)
         return torch.cat([eps, rest], dim=1)
 

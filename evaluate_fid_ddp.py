@@ -99,7 +99,15 @@ def main(args):
     model = model.to(dtype=torch.bfloat16)
     model = torch.compile(model, mode="default")
     diffusion = create_diffusion(str(args.num_sampling_steps))
-    
+
+    # Resolve guidance interval (fractions -> absolute timestep units the model sees).
+    cfg_interval = None
+    if args.guidance_low > 0.0 or args.guidance_high < 1.0:
+        T = diffusion.num_timesteps
+        cfg_interval = (args.guidance_low * T, args.guidance_high * T)
+        if rank == 0:
+            print(f"Guidance interval ON: cfg only for t in [{cfg_interval[0]:.1f}, {cfg_interval[1]:.1f}] of {T}")
+
     # --- Load VAE Model (Convert to BF16) ---
     vae = AutoencoderKL.from_pretrained(f"stabilityai/sd-vae-ft-{args.vae}").to(device)
     vae.eval()
@@ -171,7 +179,7 @@ def main(args):
             z_combined = torch.cat([z, z], 0)
             y_null = torch.tensor([args.num_classes] * n, device=device)
             y_combined = torch.cat([y, y_null], 0)
-            model_kwargs = dict(y=y_combined, cfg_scale=args.cfg_scale)
+            model_kwargs = dict(y=y_combined, cfg_scale=args.cfg_scale, cfg_interval=cfg_interval)
 
             with torch.autocast("cuda", dtype=torch.bfloat16):
                 samples = diffusion.p_sample_loop(
@@ -245,6 +253,14 @@ if __name__ == "__main__":
     parser.add_argument("--num-samples", type=int, default=10000)
     parser.add_argument("--batch-size", type=int, default=128)
     parser.add_argument("--real-data-dir", type=str, required=True)
+
+    # --- Guidance interval (Kynkaaniemi et al. 2024): apply cfg only for a band of
+    # noise levels, given as fractions of the diffusion trajectory (0=clean, 1=pure noise).
+    # Default (0,1) reproduces plain cfg over the whole trajectory.
+    parser.add_argument("--guidance-low", type=float, default=0.0,
+                        help="Lower bound of guidance interval as fraction of train timesteps.")
+    parser.add_argument("--guidance-high", type=float, default=1.0,
+                        help="Upper bound of guidance interval as fraction of train timesteps.")
 
     # --- REPA checkpoint support ---
     parser.add_argument("--repa", action="store_true", help="Checkpoints are REPA-trained DiT_REPA models.")
