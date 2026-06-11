@@ -26,6 +26,7 @@ from tqdm import tqdm
 
 # 引入 torchmetrics
 from torchmetrics.image.fid import FrechetInceptionDistance
+from utils_config import parse_args
 
 def main(args):
     # --- H100 Speedups ---
@@ -268,9 +269,9 @@ if __name__ == "__main__":
     parser.add_argument("--proj-dim", type=int, default=2048)
     parser.add_argument("--align-depth", type=int, default=8)
 
-    args = parser.parse_args()
+    args = parse_args(parser)
     main(args)
 
 
 
-# torchrun --nnodes=1 --nproc_per_node=4 evaluate_fid_ddp.py --real-data-dir /work/c30778/dataset/imagenet/val --model DiT-B/2 --num-samples 10000 --ckpt-dir ./results/039-DiT-B-2-MinSNR/checkpoints
+# torchrun --nnodes=1 --nproc_per_node=4 evaluate_fid_ddp.py --config configs/evaluate_fid.yaml --ckpt-dir ./results/<exp>/checkpoints

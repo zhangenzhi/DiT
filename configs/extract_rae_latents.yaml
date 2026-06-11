@@ -1,0 +1,5 @@
+# RAE pipeline: precompute RAE latents per class.
+# Run: torchrun --nproc_per_node=4 extract_rae_latents.py --config configs/extract_rae_latents.yaml
+rae-root: /work/hps0/home/ea0104/RAEv2   # <- adjust after cloning RAEv2
+data-path: /work/hps0/home/ea0104/datasets/imagenet-1k/train
+out: /work/hps0/home/ea0104/datasets/rae_dinov3l_k7_latents/train

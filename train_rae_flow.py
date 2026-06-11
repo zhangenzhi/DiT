@@ -27,17 +27,11 @@ from torch.utils.data.distributed import DistributedSampler
 from torchvision import transforms
 from torchvision.datasets import ImageFolder
 
-sys.path.insert(0, "/work/c30636/RAEv2/src")  # for stage1.RAE + encoders
-from stage1 import RAE                          # noqa: E402
-from models import DiT                          # our DiT  # noqa: E402
-from models_repa import DiT_REPA                # REPA variant  # noqa: E402
-from models_rope import DiT_RoPE, DiT_RoPE_REPA, DiT_RoPE_DDT  # RoPE variants  # noqa: E402
-
-RAE_ROOT = "/work/c30636/RAEv2"
-DEC_CFG = f"{RAE_ROOT}/configs/decoder/ViTXL"
-DEC_PT = f"{RAE_ROOT}/pretrained_models/stage1/imagenet/dinov3l-k7/decoder.pt"
-STATS = f"{RAE_ROOT}/pretrained_models/stage1/imagenet/dinov3l-k7/stats.pt"
-ENC_NAME = "dinov3mls-vit-l16[layers=11.13.15.17.19.21.23]"
+from models import DiT                          # our DiT
+from models_repa import DiT_REPA                # REPA variant
+from models_rope import DiT_RoPE, DiT_RoPE_REPA, DiT_RoPE_DDT  # RoPE variants
+from utils_config import parse_args
+from rae_utils import add_rae_root_arg, load_rae
 
 
 @torch.no_grad()
@@ -118,9 +112,7 @@ def main(args):
     # --- RAE encoder only needed for ONLINE encoding; offline mode skips it ---
     rae = None
     if not args.latent_dir:
-        rae = RAE(encoder_name=ENC_NAME, resolution=256, decoder_config_path=DEC_CFG,
-                  decoder_patch_size=16, pretrained_decoder_path=DEC_PT,
-                  noise_tau=0.0, normalization_stat_path=STATS).to(device)
+        rae = load_rae(args.rae_root, device)
         rae.eval()
         for p in rae.parameters():
             p.requires_grad_(False)
@@ -315,7 +307,8 @@ def main(args):
 
 if __name__ == "__main__":
     p = argparse.ArgumentParser()
-    p.add_argument("--data-path", default="/work/c30778/dataset/imagenet/train")
+    p.add_argument("--data-path", required=True, help="ImageNet train/ directory (ImageFolder layout)")
+    add_rae_root_arg(p)
     p.add_argument("--latent-dir", default=None, help="If set, train on precomputed RAE latents (skip online DINOv3 encode)")
     p.add_argument("--results-dir", default="results")
     p.add_argument("--num-classes", type=int, default=1000)
@@ -339,5 +332,5 @@ if __name__ == "__main__":
     p.add_argument("--resume", default=None, help="checkpoint .pt to resume model/ema/opt/step from")
     p.add_argument("--arch", default="dit", choices=["dit", "dit_rope", "dit_rope_ddt"],
                    help="dit (vanilla) | dit_rope (RMSNorm+SwiGLU+RoPE) | dit_rope_ddt (two-stream wide decoder). REPA: dit/dit_rope only.")
-    args = p.parse_args()
+    args = parse_args(p)
     main(args)

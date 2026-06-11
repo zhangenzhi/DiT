@@ -30,6 +30,7 @@ from torch.cuda.amp import autocast
 from models import DiT_models
 from diffusion import create_diffusion
 from diffusers.models import AutoencoderKL
+from utils_config import parse_args
 
 
 #################################################################################
@@ -346,8 +347,7 @@ if __name__ == "__main__":
     # --- 新增参数 ---
     parser.add_argument("--snr-gamma", type=float, default=5.0, help="Min-SNR weighting gamma")
     
-    args = parser.parse_args()
+    args = parse_args(parser)
     main(args)
 
-# torchrun --nnodes=1 --nproc_per_node=4 train_feat_bf16_cp_bz_snr.py --model DiT-B/2 --features-path /work/c30636/dataset/dit_feat_aug/train 
-# /work/c30778/dataset/dit_feat_fix/train
+# torchrun --nnodes=1 --nproc_per_node=4 train_feat_bf16_cp_bz_snr.py --config configs/train.yaml

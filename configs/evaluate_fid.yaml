@@ -1,0 +1,11 @@
+# FID evaluation against real ImageNet val images.
+# Run: torchrun --nproc_per_node=4 evaluate_fid_ddp.py --config configs/evaluate_fid.yaml --ckpt-dir results/<exp>/checkpoints
+real-data-dir: /work/hps0/home/ea0104/datasets/imagenet-1k/val
+model: DiT-B/2
+image-size: 256
+cfg-scale: 1.8
+num-sampling-steps: 250
+num-samples: 10000
+batch-size: 128
+results-file: fid_results.txt
+# For REPA checkpoints add: repa: true

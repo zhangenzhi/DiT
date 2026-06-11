@@ -17,8 +17,15 @@ def load(p):
         pass
     return sorted(set(pts))
 
-norepa = load("/work/c30636/DiT/outputs/fid_rae_flow.txt")
-repa = load("/work/c30636/DiT/outputs/fid_rae_repa.txt")  # restarted REPA run (with nan-guard)
+import argparse
+from utils_config import parse_args
+_p = argparse.ArgumentParser()
+_p.add_argument("--outputs-dir", default="outputs",
+                help="Directory holding the FID result .txt files; plots are saved here too")
+O = parse_args(_p).outputs_dir
+
+norepa = load(f"{O}/fid_rae_flow.txt")
+repa = load(f"{O}/fid_rae_repa.txt")  # restarted REPA run (with nan-guard)
 
 plt.figure(figsize=(7.5, 5))
 for pts, lab, c in [(norepa, "RAE-flow (no REPA)", "tab:blue"),
@@ -34,7 +41,7 @@ plt.axhline(1.17, ls="--", color="green", alpha=0.6, label="official RAEv2 (1.17
 plt.title("RAE latent: REPA vs no-REPA (our DiT+flow, official ADM stats, 10k, cfg1.8)")
 plt.xlabel("training step (k)"); plt.ylabel("FID (official ref, 10k)")
 plt.grid(True, alpha=0.3); plt.legend()
-out = "/work/c30636/DiT/outputs/rae_repa_vs_norepa.png"
+out = f"{O}/rae_repa_vs_norepa.png"
 plt.tight_layout(); plt.savefig(out, dpi=120)
 print("saved", out)
 print("no-REPA:", " ".join(f"{s//1000}k:{f:.1f}" for s, f in norepa))

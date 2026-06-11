@@ -13,18 +13,13 @@ import torch.distributed as dist
 from PIL import Image
 from tqdm import tqdm
 
-sys.path.insert(0, "/work/c30636/RAEv2/src")
-from stage1 import RAE                  # noqa: E402
-from models import DiT                  # noqa: E402
-from models_rope import DiT_RoPE, DiT_RoPE_DDT  # noqa: E402
-from download import find_model         # noqa: E402
+from models import DiT
+from models_rope import DiT_RoPE, DiT_RoPE_DDT
+from download import find_model
+from utils_config import parse_args
+from rae_utils import LATENT, add_rae_root_arg, load_rae
 
-RAE_ROOT = "/work/c30636/RAEv2"
-DEC_CFG = f"{RAE_ROOT}/configs/decoder/ViTXL"
-DEC_PT = f"{RAE_ROOT}/pretrained_models/stage1/imagenet/dinov3l-k7/decoder.pt"
-STATS = f"{RAE_ROOT}/pretrained_models/stage1/imagenet/dinov3l-k7/stats.pt"
-ENC_NAME = "dinov3mls-vit-l16[layers=11.13.15.17.19.21.23]"
-LATENT = (1024, 16, 16)
+
 SHIFT = math.sqrt(math.prod(LATENT) / 4096.0)   # = 8.0
 
 
@@ -109,9 +104,7 @@ def main(args):
         else:
             print(f"loaded model; cfg={args.cfg_scale} steps={args.num_steps} shift={SHIFT:.2f}", flush=True)
 
-    rae = RAE(encoder_name=ENC_NAME, resolution=256, decoder_config_path=DEC_CFG,
-              decoder_patch_size=16, pretrained_decoder_path=DEC_PT,
-              noise_tau=0.0, normalization_stat_path=STATS).to(device).eval()
+    rae = load_rae(args.rae_root, device).eval()
 
     ckpt_s = os.path.basename(args.ckpt).replace(".pt", "")
     if model_bad is not None:
@@ -153,7 +146,8 @@ def main(args):
 if __name__ == "__main__":
     p = argparse.ArgumentParser()
     p.add_argument("--ckpt", required=True)
-    p.add_argument("--sample-dir", default="/work/c30636/DiT/outputs/rae_flow_samples")
+    add_rae_root_arg(p)
+    p.add_argument("--sample-dir", default="outputs/rae_flow_samples")
     p.add_argument("--num-classes", type=int, default=1000)
     p.add_argument("--per-proc-batch-size", type=int, default=32)
     p.add_argument("--num-fid-samples", type=int, default=10000)
@@ -164,5 +158,5 @@ if __name__ == "__main__":
     p.add_argument("--ag-ckpt", default=None,
                    help="weak/undertrained checkpoint for autoguidance (Karras). If set, CFG is ignored.")
     p.add_argument("--ag-scale", type=float, default=2.0, help="autoguidance weight w in vb+w*(vg-vb)")
-    args = p.parse_args()
+    args = parse_args(p)
     main(args)

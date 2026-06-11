@@ -4,17 +4,25 @@ For a few images of one class:
   (B) fresh rae.encode -> rae.decode   (known-good official path)
   (C) our stored latent -> rae.decode  (the 626GB we trained on)
 Numerically compares stored latent vs fresh encode. If C~=B~=A, extraction is fine."""
-import os, sys, numpy as np, torch
+import os, argparse, numpy as np, torch
 from PIL import Image
 import torchvision.transforms as T
-sys.path.insert(0, "/work/c30636/DiT")
-from sample_rae_flow import RAE, ENC_NAME, DEC_CFG, DEC_PT, STATS
+from utils_config import parse_args
+from rae_utils import add_rae_root_arg, load_rae
 
-CLASS = "n01440764"
-IMGDIR = f"/work/c30778/dataset/imagenet/train/{CLASS}"
-LAT = f"/work/c30636/dataset/rae_dinov3l_k7_latents/train/{CLASS}.npy"
-N = 4
-OUT = "/work/c30636/DiT/outputs/round_trip.png"
+_p = argparse.ArgumentParser()
+_p.add_argument("--data-path", required=True, help="ImageNet train/ directory")
+_p.add_argument("--latent-dir", required=True, help="Directory with per-class latent .npy files")
+_p.add_argument("--class-name", default="n01440764")
+_p.add_argument("-n", type=int, default=4, help="images to compare")
+_p.add_argument("--out", default="outputs/round_trip.png")
+add_rae_root_arg(_p)
+_a = parse_args(_p)
+CLASS = _a.class_name
+IMGDIR = os.path.join(_a.data_path, CLASS)
+LAT = os.path.join(_a.latent_dir, f"{CLASS}.npy")
+N = _a.n
+OUT = _a.out
 
 
 def center_crop(img, size):
@@ -30,9 +38,7 @@ def center_crop(img, size):
 
 def main():
     dev = torch.device("cuda")
-    rae = RAE(encoder_name=ENC_NAME, resolution=256, decoder_config_path=DEC_CFG,
-              decoder_patch_size=16, pretrained_decoder_path=DEC_PT,
-              noise_tau=0.0, normalization_stat_path=STATS).to(dev).eval()
+    rae = load_rae(_a.rae_root, dev).eval()
 
     files = sorted(f for f in os.listdir(IMGDIR) if f.lower().endswith((".jpeg", ".jpg", ".png")))[:N]
     origs = [center_crop(Image.open(os.path.join(IMGDIR, f)).convert("RGB"), 256) for f in files]

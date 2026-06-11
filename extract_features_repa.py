@@ -23,6 +23,7 @@ import numpy as np
 import os
 import argparse
 import timm
+from utils_config import parse_args
 
 
 # --- 自定义 Dataset 以安全获取路径 ---
@@ -184,5 +185,5 @@ if __name__ == "__main__":
     parser.add_argument("--batch-size", type=int, default=32)
     parser.add_argument("--num-workers", type=int, default=8)
     parser.add_argument("--global-seed", type=int, default=0)
-    args = parser.parse_args()
+    args = parse_args(parser)
     main(args)

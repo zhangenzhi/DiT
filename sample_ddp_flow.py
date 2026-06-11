@@ -19,6 +19,7 @@ import math
 import os
 import argparse
 from tqdm import tqdm
+from utils_config import parse_args
 
 
 def create_npz_from_sample_folder(sample_dir, num):
@@ -142,5 +143,5 @@ if __name__ == "__main__":
     p.add_argument("--z-dim", type=int, default=768)
     p.add_argument("--proj-dim", type=int, default=2048)
     p.add_argument("--align-depth", type=int, default=8)
-    args = p.parse_args()
+    args = parse_args(p)
     main(args)

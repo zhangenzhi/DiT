@@ -20,7 +20,12 @@ def load(p, cfg_only="cfg=1.8"):
         pass
     return sorted(set(pts))
 
-O = "/work/c30636/DiT/outputs"
+import argparse
+from utils_config import parse_args
+_p = argparse.ArgumentParser()
+_p.add_argument("--outputs-dir", default="outputs",
+                help="Directory holding the FID result .txt files; plots are saved here too")
+O = parse_args(_p).outputs_dir
 ddpm = load(f"{O}/fid_ddpm_xl.txt")          # SD-VAE DDPM-REPA XL
 sdflow = load(f"{O}/fid_flow_xl_curve.txt")  # SD-VAE flow-REPA XL
 rae = load(f"{O}/fid_rae_flow.txt")          # RAE-flow (no REPA), our DiT

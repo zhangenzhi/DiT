@@ -1,0 +1,10 @@
+# Baseline training on precomputed latents (works for the train_feat*.py family).
+# Run: torchrun --nproc_per_node=4 train_feat_bf16.py --config configs/train.yaml
+features-path: /work/hps0/home/ea0104/datasets/dit_feat/train
+results-dir: results
+model: DiT-B/2
+image-size: 256
+epochs: 400
+num-workers: 32
+log-every: 100
+ckpt-every: 10000

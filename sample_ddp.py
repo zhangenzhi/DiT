@@ -24,6 +24,7 @@ from PIL import Image
 import numpy as np
 import math
 import argparse
+from utils_config import parse_args
 
 
 def create_npz_from_sample_folder(sample_dir, num=50_000):
@@ -192,7 +193,7 @@ if __name__ == "__main__":
     # --- Guidance interval (fractions of the trajectory; default off) ---
     parser.add_argument("--guidance-low", type=float, default=0.0)
     parser.add_argument("--guidance-high", type=float, default=1.0)
-    args = parser.parse_args()
+    args = parse_args(parser)
     main(args)
     
 # torchrun --nnodes=1 --nproc_per_node=4 sample_ddp.py --model DiT-B/2 --num-fid-samples 50000 --ckpt ./results/039-DiT-B-2-MinSNR/checkpoints/0410000.pt

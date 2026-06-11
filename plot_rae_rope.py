@@ -19,7 +19,12 @@ def load(p):
         pass
     return sorted(set(pts))
 
-O = "/work/c30636/DiT/outputs"
+import argparse
+from utils_config import parse_args
+_p = argparse.ArgumentParser()
+_p.add_argument("--outputs-dir", default="outputs",
+                help="Directory holding the FID result .txt files; plots are saved here too")
+O = parse_args(_p).outputs_dir
 base = load(f"{O}/fid_rae_flow.txt")   # vanilla DiT, no-REPA (exp 008)
 rope = load(f"{O}/fid_rae_rope.txt")   # DiT_RoPE (exp 011)
 

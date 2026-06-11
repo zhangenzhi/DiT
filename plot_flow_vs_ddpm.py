@@ -18,8 +18,15 @@ def load(path, want_gh=None):
         pts.append((step, fid))
     return sorted(set(pts))
 
-ddpm = load("/work/c30636/DiT/outputs/fid_ddpm_b2.txt")
-flow = load("/work/c30636/DiT/outputs/fid_flow_b2_curve.txt")
+import argparse
+from utils_config import parse_args
+_p = argparse.ArgumentParser()
+_p.add_argument("--outputs-dir", default="outputs",
+                help="Directory holding the FID result .txt files; plots are saved here too")
+O = parse_args(_p).outputs_dir
+
+ddpm = load(f"{O}/fid_ddpm_b2.txt")
+flow = load(f"{O}/fid_flow_b2_curve.txt")
 
 plt.figure(figsize=(7, 5))
 for pts, lab, c in [(ddpm, "DDPM-REPA (eps+sigma)", "tab:blue"),
@@ -31,6 +38,6 @@ for pts, lab, c in [(ddpm, "DDPM-REPA (eps+sigma)", "tab:blue"),
 plt.title("DiT-B/2 REPA: Flow vs DDPM (official ADM stats, 10k, cfg=1.8)")
 plt.xlabel("training step (k)"); plt.ylabel("FID (official ref, 10k samples)")
 plt.grid(True, alpha=0.3); plt.legend()
-out = "/work/c30636/DiT/outputs/flow_vs_ddpm_b2.png"
+out = f"{O}/flow_vs_ddpm_b2.png"
 plt.tight_layout(); plt.savefig(out, dpi=120)
 print("saved", out)

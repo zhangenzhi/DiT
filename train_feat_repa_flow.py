@@ -40,6 +40,7 @@ from torch.cuda.amp import autocast
 
 from models_repa import DiT_REPA_models
 from download import resume_from_checkpoint
+from utils_config import parse_args
 
 #################################################################################
 #                             Training Helper Functions                         #
@@ -332,5 +333,5 @@ if __name__ == "__main__":
     parser.add_argument("--align-depth", type=int, default=8)
     parser.add_argument("--z-dim", type=int, default=768)
     parser.add_argument("--proj-dim", type=int, default=2048)
-    args = parser.parse_args()
+    args = parse_args(parser)
     main(args)

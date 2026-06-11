@@ -1,7 +1,7 @@
 # Quick CPU side-by-side sample comparison of two DiT checkpoints.
 # Uses identical noise + class labels + sampling steps for both, so the
 # only difference is the model weights (REPA vs baseline).
-import time
+import os, time, argparse
 from collections import OrderedDict
 import torch
 import numpy as np
@@ -13,14 +13,22 @@ from models_repa import DiT_REPA_models
 from diffusion import create_diffusion
 from diffusers.models import AutoencoderKL
 
+from utils_config import parse_args
+
+_p = argparse.ArgumentParser()
+_p.add_argument("--repa-ckpt", default="results/001-DiT-XL-2-repa/checkpoints/0050000.pt")
+_p.add_argument("--baseline-ckpt", default="results/003-DiT-XL-2/checkpoints/0050000.pt")
+_p.add_argument("--outputs-dir", default="outputs")
+_a = parse_args(_p)
+
 DEV = "cpu"
 N = 16                       # images per model (4x4 grid)
 STEPS = 50                   # sampling steps (reduced for CPU)
 CFG = 4.0
 SEED = 0
 CKPTS = [
-    ("repa_xl2_50k",     "results/001-DiT-XL-2-repa/checkpoints/0050000.pt", True),
-    ("baseline_xl2_50k", "results/003-DiT-XL-2/checkpoints/0050000.pt",      False),
+    ("repa_xl2_50k",     _a.repa_ckpt,     True),
+    ("baseline_xl2_50k", _a.baseline_ckpt, False),
 ]
 # a fixed set of recognizable ImageNet classes
 CLASSES = [207, 360, 387, 388, 933, 980, 250, 270, 279, 291, 88, 11, 130, 323, 562, 417]
@@ -69,7 +77,7 @@ def main():
         imgs = (imgs / 2 + 0.5).clamp(0, 1)
         grid = make_grid(imgs, nrow=4)
         arr = (grid.permute(1, 2, 0).numpy() * 255).astype(np.uint8)
-        out = f"/work/c30636/DiT/outputs/cmp_{name}.png"
+        out = os.path.join(_a.outputs_dir, f"cmp_{name}.png")
         Image.fromarray(arr).save(out)
         print(f"[{name}] saved {out}  ({time.time()-t0:.0f}s)", flush=True)
 

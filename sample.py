@@ -16,6 +16,7 @@ from diffusers.models import AutoencoderKL
 from download import find_model
 from models import DiT_models
 import argparse
+from utils_config import parse_args
 
 
 def main(args):
@@ -80,7 +81,7 @@ if __name__ == "__main__":
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--ckpt", type=str, default=None,
                         help="Optional path to a DiT checkpoint (default: auto-download a pre-trained DiT-XL/2 model).")
-    args = parser.parse_args()
+    args = parse_args(parser)
     main(args)
     
 # python sample.py --model DiT-B/2 --image-size 256 --ckpt ./results/013-DiT-B-2/checkpoints/0045000.pt

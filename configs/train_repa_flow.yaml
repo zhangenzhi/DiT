@@ -1,0 +1,17 @@
+# Step 2 alt: REPA + flow-matching objective.
+# Run: torchrun --nproc_per_node=4 train_feat_repa_flow.py --config configs/train_repa_flow.yaml
+features-path: /work/hps0/home/ea0104/datasets/dit_feat/train
+dino-path: /work/hps0/home/ea0104/datasets/dit_dino/train
+results-dir: results
+model: DiT-B/2
+image-size: 256
+epochs: 400
+global-batch-size: 512
+num-workers: 32
+log-every: 100
+ckpt-every: 10000
+learning-rate: 1.0e-4
+repa-lambda: 0.5
+align-depth: 8
+z-dim: 768
+proj-dim: 2048

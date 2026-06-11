@@ -28,6 +28,29 @@ This repository contains:
 An implementation of DiT directly in Hugging Face `diffusers` can also be found [here](https://github.com/huggingface/diffusers/blob/main/docs/source/en/api/pipelines/dit.mdx).
 
 
+## YAML configs
+
+Every script accepts `--config <file.yaml>` in addition to its normal CLI flags.
+Precedence: argparse defaults < YAML values < explicit CLI flags. YAML keys match
+the flag names (`data-path:` or `data_path:` both work); unknown keys are rejected.
+Ready-made configs live in [`configs/`](configs/):
+
+```bash
+# REPA pipeline
+torchrun --nproc_per_node=4 extract_features_repa.py --config configs/extract_features_repa.yaml
+torchrun --nproc_per_node=4 train_feat_repa.py --config configs/train_repa.yaml
+torchrun --nproc_per_node=4 evaluate_fid_ddp.py --config configs/evaluate_fid.yaml \
+    --ckpt-dir results/<exp>/checkpoints --repa
+
+# any value can be overridden on the command line
+torchrun --nproc_per_node=4 train_feat_repa.py --config configs/train_repa.yaml --model DiT-XL/2
+```
+
+The RAE pipeline scripts (`train_rae_flow.py`, `sample_rae_flow.py`,
+`extract_rae_latents.py`, `sample_grid.py`, `round_trip.py`) additionally need a
+local checkout of the RAEv2 repo: set `rae-root` in the YAML, pass `--rae-root`,
+or export `RAE_ROOT`.
+
 ## Setup
 
 First, download and set up the repo:

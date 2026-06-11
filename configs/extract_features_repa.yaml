@@ -1,0 +1,10 @@
+# Step 1 (REPA pipeline): precompute SD-VAE latents + DINOv2 features from ImageNet.
+# Run: torchrun --nproc_per_node=4 extract_features_repa.py --config configs/extract_features_repa.yaml
+data-path: /work/hps0/home/ea0104/datasets/imagenet-1k/train
+features-path: /work/hps0/home/ea0104/datasets/dit_feat/train       # output: VAE latents
+dino-path: /work/hps0/home/ea0104/datasets/dit_dino/train           # output: DINOv2 features
+vae-path: stabilityai/sd-vae-ft-ema
+dino-model: vit_base_patch14_dinov2.lvd142m
+image-size: 256
+batch-size: 32
+num-workers: 8

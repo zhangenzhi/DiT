@@ -12,14 +12,9 @@ import torch
 import torch.distributed as dist
 from PIL import Image
 
-sys.path.insert(0, "/work/c30636/RAEv2/src")
-from stage1 import RAE  # noqa: E402
+from utils_config import parse_args
+from rae_utils import add_rae_root_arg, load_rae
 
-RAE_ROOT = "/work/c30636/RAEv2"
-DEC_CFG = f"{RAE_ROOT}/configs/decoder/ViTXL"
-DEC_PT = f"{RAE_ROOT}/pretrained_models/stage1/imagenet/dinov3l-k7/decoder.pt"
-STATS = f"{RAE_ROOT}/pretrained_models/stage1/imagenet/dinov3l-k7/stats.pt"
-ENC_NAME = "dinov3mls-vit-l16[layers=11.13.15.17.19.21.23]"
 EXTS = {".jpg", ".jpeg", ".png", ".JPEG"}
 
 
@@ -38,9 +33,7 @@ def main(args):
     dev = int(os.environ.get("LOCAL_RANK", 0)); torch.cuda.set_device(dev)
     os.makedirs(args.out, exist_ok=True)
 
-    rae = RAE(encoder_name=ENC_NAME, resolution=256, decoder_config_path=DEC_CFG,
-              decoder_patch_size=16, pretrained_decoder_path=None,  # decoder not needed for encode
-              noise_tau=0.0, normalization_stat_path=STATS).to(dev).eval()
+    rae = load_rae(args.rae_root, dev, decoder=False).eval()  # decoder not needed for encode
     for p in rae.parameters():
         p.requires_grad_(False)
 
@@ -87,10 +80,11 @@ def main(args):
 
 if __name__ == "__main__":
     p = argparse.ArgumentParser()
-    p.add_argument("--data-path", default="/work/c30778/dataset/imagenet/train")
-    p.add_argument("--out", default="/work/c30636/dataset/rae_dinov3l_k7_latents/train")
+    p.add_argument("--data-path", required=True, help="ImageNet train/ directory (ImageFolder layout)")
+    p.add_argument("--out", required=True, help="Output directory for per-class latent .npy files")
+    add_rae_root_arg(p)
     p.add_argument("--batch-size", type=int, default=64)
     p.add_argument("--max-classes", type=int, default=0, help="limit #classes (0=all); for smoke")
     p.add_argument("--flip", action="store_true", help="horizontally flip every image before encoding (for flip-aug latents)")
-    args = p.parse_args()
+    args = parse_args(p)
     main(args)

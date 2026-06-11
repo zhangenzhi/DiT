@@ -1,5 +1,4 @@
-import torch, sys
-sys.path.insert(0,"/work/c30636/DiT")
+import torch
 from models_rope import DiT_RoPE_DDT
 dev=torch.device("cuda")
 p=torch.cuda.get_device_properties(0)

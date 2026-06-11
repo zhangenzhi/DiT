@@ -11,9 +11,7 @@ import numpy as np
 import torch
 from scipy import linalg
 from torchmetrics.image.fid import NoTrainInceptionV3
-
-REF_DEFAULT = "/work/c30636/dataset/VIRTUAL_imagenet256_labeled.npz"
-
+from utils_config import parse_args
 
 def build_extractor(device):
     fe = NoTrainInceptionV3(name="inception-v3-compat", features_list=["2048"]).to(device).eval()
@@ -58,12 +56,15 @@ def main():
     p = argparse.ArgumentParser()
     p.add_argument("--samples-npz", type=str, default=None,
                    help="npz with arr_0 (N,256,256,3) uint8 generated samples")
-    p.add_argument("--ref-npz", type=str, default=REF_DEFAULT)
+    p.add_argument("--ref-npz", type=str, default=None,
+                   help="ADM reference stats npz (VIRTUAL_imagenet256_labeled.npz)")
     p.add_argument("--batch-size", type=int, default=128)
     p.add_argument("--self-check", action="store_true",
                    help="Extract features from the reference npz's own arr_0 and FID against stored mu/sigma")
-    args = p.parse_args()
+    args = parse_args(p)
 
+    if not args.ref_npz:
+        p.error("--ref-npz is required (or set ref-npz in the YAML config)")
     device = "cuda" if torch.cuda.is_available() else "cpu"
     ref = np.load(args.ref_npz)
     mu_ref, sigma_ref = ref["mu"], ref["sigma"]

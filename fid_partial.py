@@ -4,16 +4,18 @@ import argparse, os
 import numpy as np
 from PIL import Image
 import torch
-from fid_from_stats import features_from_images, stats, frechet_distance, REF_DEFAULT
+from fid_from_stats import features_from_images, stats, frechet_distance
+from utils_config import parse_args
 
 
 def main():
     p = argparse.ArgumentParser()
     p.add_argument("--dir", required=True, help="folder of 000000.png ... samples")
     p.add_argument("--n", type=int, required=True, help="use the first N contiguous PNGs")
-    p.add_argument("--ref-npz", default=REF_DEFAULT)
+    p.add_argument("--ref-npz", required=True,
+                   help="ADM reference stats npz (VIRTUAL_imagenet256_labeled.npz)")
     p.add_argument("--batch-size", type=int, default=128)
-    args = p.parse_args()
+    args = parse_args(p)
 
     # verify contiguity and load
     imgs = []

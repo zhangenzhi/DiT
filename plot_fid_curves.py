@@ -5,7 +5,12 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
-O = "/work/c30636/DiT/outputs"
+import argparse
+from utils_config import parse_args
+_p = argparse.ArgumentParser()
+_p.add_argument("--outputs-dir", default="outputs",
+                help="Directory holding the FID result .txt files; plots are saved here too")
+O = parse_args(_p).outputs_dir
 SERIES = {
     "b2_repa": ("DiT-B/2",  "REPA",     "tab:red"),
     "b2_base": ("DiT-B/2",  "baseline", "tab:blue"),

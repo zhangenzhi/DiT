@@ -30,6 +30,7 @@ from torch.cuda.amp import autocast
 from models import DiT_models
 from diffusion import create_diffusion
 from diffusers.models import AutoencoderKL
+from utils_config import parse_args
 
 
 #################################################################################
@@ -271,7 +272,7 @@ if __name__ == "__main__":
     parser.add_argument("--num-workers", type=int, default=4)
     parser.add_argument("--log-every", type=int, default=100)
     parser.add_argument("--ckpt-every", type=int, default=50_000)
-    args = parser.parse_args()
+    args = parse_args(parser)
     main(args)
 
-# torchrun --nnodes=1 --nproc_per_node=4 train_feat_bf16.py --model DiT-B/2 --features-path /work/c30778/dataset/dit_feat_fix/train
+# torchrun --nnodes=1 --nproc_per_node=4 train_feat_bf16.py --config configs/train.yaml

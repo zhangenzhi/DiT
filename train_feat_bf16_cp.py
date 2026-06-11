@@ -31,6 +31,7 @@ from models import DiT_models
 from diffusion import create_diffusion
 from diffusers.models import AutoencoderKL
 from download import resume_from_checkpoint
+from utils_config import parse_args
 
 #################################################################################
 #                             Training Helper Functions                         #
@@ -289,7 +290,7 @@ if __name__ == "__main__":
     parser.add_argument("--log-every", type=int, default=100)
     parser.add_argument("--ckpt-every", type=int, default=50_000)
     parser.add_argument("--resume", type=str, default=None)
-    args = parser.parse_args()
+    args = parse_args(parser)
     main(args)
 
-# torchrun --nnodes=1 --nproc_per_node=4 train_feat_bf16_cp.py --model DiT-XL/2 --features-path /work/c30778/dataset/dit_feat_fix/train --resume ./results/017-DiT-XL-2/checkpoints/0100000.pt
+# torchrun --nnodes=1 --nproc_per_node=4 train_feat_bf16_cp.py --config configs/train.yaml [--resume <ckpt.pt>]

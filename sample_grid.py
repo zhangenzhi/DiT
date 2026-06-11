@@ -5,9 +5,9 @@ import numpy as np
 import torch
 from PIL import Image
 
-sys.path.insert(0, "/work/c30636/DiT")
-from sample_rae_flow import (load_model, velocity_ode, velocity_ode_ag, RAE,
-                             ENC_NAME, DEC_CFG, DEC_PT, STATS, LATENT)
+from sample_rae_flow import load_model, velocity_ode, velocity_ode_ag
+from rae_utils import LATENT, add_rae_root_arg, load_rae
+from utils_config import parse_args
 
 # 16 recognizable ImageNet classes for a nice grid
 CLASSES = [207, 281, 291, 388, 323, 130, 88, 933,
@@ -19,9 +19,7 @@ def main(a):
     dev = torch.device("cuda")
     model = load_model(a.ckpt, a.arch, a.num_classes, dev)
     bad = load_model(a.ag_ckpt, a.arch, a.num_classes, dev) if a.ag_ckpt else None
-    rae = RAE(encoder_name=ENC_NAME, resolution=256, decoder_config_path=DEC_CFG,
-              decoder_patch_size=16, pretrained_decoder_path=DEC_PT,
-              noise_tau=0.0, normalization_stat_path=STATS).to(dev).eval()
+    rae = load_rae(a.rae_root, dev).eval()
 
     n = a.n
     y = torch.tensor(CLASSES[:n], device=dev)
@@ -54,5 +52,6 @@ if __name__ == "__main__":
     p.add_argument("--ag-ckpt", default=None)
     p.add_argument("--ag-scale", type=float, default=2.0)
     p.add_argument("--seed", type=int, default=0)
-    p.add_argument("--out", default="/work/c30636/DiT/outputs/grid_400k.png")
-    main(p.parse_args())
+    p.add_argument("--out", default="outputs/grid.png")
+    add_rae_root_arg(p)
+    main(parse_args(p))

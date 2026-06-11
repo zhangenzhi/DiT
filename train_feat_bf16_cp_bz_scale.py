@@ -32,6 +32,7 @@ from models import DiT_models
 from diffusion import create_diffusion
 from diffusers.models import AutoencoderKL
 from download import resume_from_checkpoint
+from utils_config import parse_args
 
 #################################################################################
 #                             Training Helper Functions                         #
@@ -326,5 +327,5 @@ if __name__ == "__main__":
     parser.add_argument("--ckpt-every", type=int, default=10_000)
     parser.add_argument("--warmup-epochs", type=int, default=10, help="Number of epochs for learning rate warmup")
     parser.add_argument("--resume", type=str, default=None)
-    args = parser.parse_args()
+    args = parse_args(parser)
     main(args)

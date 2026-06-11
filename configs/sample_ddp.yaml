@@ -1,0 +1,10 @@
+# Sample N images from a checkpoint for FID (DDP).
+# Run: torchrun --nproc_per_node=4 sample_ddp.py --config configs/sample_ddp.yaml --ckpt <path.pt>
+model: DiT-B/2
+sample-dir: samples
+per-proc-batch-size: 32
+num-fid-samples: 10000
+image-size: 256
+cfg-scale: 1.5
+num-sampling-steps: 250
+# For REPA checkpoints add: repa: true

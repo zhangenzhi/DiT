@@ -10,6 +10,7 @@ from PIL import Image
 import numpy as np
 import os
 import argparse
+from utils_config import parse_args
 
 # --- 自定义 Dataset 以安全获取路径 ---
 class ImageFolderWithPaths(ImageFolder):
@@ -145,7 +146,7 @@ if __name__ == "__main__":
     parser.add_argument("--batch-size", type=int, default=32)
     parser.add_argument("--num-workers", type=int, default=8)
     parser.add_argument("--global-seed", type=int, default=0)
-    args = parser.parse_args()
+    args = parse_args(parser)
     main(args)
     
-# torchrun --nproc_per_node=4 extract_features.py --data-path /work/c30778/dataset/imagenet --features-path /work/c30778/dataset/dit_feat_fix
+# torchrun --nproc_per_node=4 extract_features.py --config configs/extract_features.yaml

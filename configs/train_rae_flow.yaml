@@ -1,0 +1,6 @@
+# RAE pipeline: train DiT in the RAE (DINOv3-L K7) latent space.
+# Requires a local RAEv2 checkout + pretrained stage-1 models.
+# Run: torchrun --nproc_per_node=4 train_rae_flow.py --config configs/train_rae_flow.yaml
+rae-root: /work/hps0/home/ea0104/RAEv2   # <- adjust after cloning RAEv2
+data-path: /work/hps0/home/ea0104/datasets/imagenet-1k/train
+results-dir: results
