@@ -294,7 +294,9 @@ def main(args):
             if step % args.ckpt_every == 0 and step > 0 and rank == 0:
                 cp = {"model": model.module.state_dict(), "ema": ema.state_dict(),
                       "opt": opt.state_dict(), "step": step, "args": args}
-                torch.save(cp, f"{ckdir}/{step:07d}.pt")
+                # atomic: a crash mid-write must never leave a truncated .pt behind
+                torch.save(cp, f"{ckdir}/{step:07d}.pt.tmp")
+                os.replace(f"{ckdir}/{step:07d}.pt.tmp", f"{ckdir}/{step:07d}.pt")
                 logger.info(f"saved {ckdir}/{step:07d}.pt")
             if step % args.ckpt_every == 0:
                 dist.barrier()
