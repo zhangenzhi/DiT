@@ -285,7 +285,7 @@ def main(args):
             # Skip the optimizer/EMA update on non-finite grads so one bad step
             # cannot corrupt the weights permanently.
             if torch.isfinite(gn):
-                opt.step(); update_ema(ema, model.module, decay=0.9999)
+                opt.step(); update_ema(ema, model.module, decay=args.ema_decay)
             else:
                 n_skip += 1
                 if rank == 0:
@@ -331,6 +331,7 @@ if __name__ == "__main__":
     p.add_argument("--lr-hold-steps", type=int, default=0, help="RAEv2 schedule: hold base_lr this many steps before decaying")
     p.add_argument("--lr-decay-end-steps", type=int, default=0, help="RAEv2 schedule: step at which LR reaches lr_final (0=disabled)")
     p.add_argument("--optimizer", default="adamw", choices=["adamw", "muon"], help="muon = RAEv2 gmuon (Muon 2D + AdamW rest)")
+    p.add_argument("--ema-decay", type=float, default=0.9995, help="EMA decay (RAEv2 uses 0.9995; old runs used 0.9999)")
     p.add_argument("--latent-flip-dir", default=None, help="dir of flipped-image latents; if set, p=0.5 flip augmentation")
     p.add_argument("--max-steps", type=int, default=0, help="stop after N steps (0=unlimited); for smoke tests")
     p.add_argument("--repa-lambda", type=float, default=0.0, help="REPA aux-loss weight (0=off). Target=clean DINOv3 latent.")
