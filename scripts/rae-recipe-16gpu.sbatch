@@ -28,6 +28,11 @@ export OMP_NUM_THREADS=8
 export NCCL_DEBUG=WARN
 # GB200 nodes: dmabuf MR registration unsupported (mlx5dv_reg_dmabuf_mr -> error 524)
 export NCCL_DMABUF_ENABLE=0
+# Platform-wide NCCL collective hang (15-75 min under sustained load, any node).
+# A/B matrix on a reproducing node: default + NVLS-off both hang; PROTO=Simple
+# and ALGO=Ring both pass. LL/LL128 protocols are the suspect path; Simple costs
+# nothing for our large (33MB) gradient buckets.
+export NCCL_PROTO=Simple
 
 CODE_DIR=/work/hps0/home/ea0104/DiT
 LATDIR=/work/hps0/home/ea0104/datasets/rae_dinov3l_k7_latents/train

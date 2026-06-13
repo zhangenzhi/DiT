@@ -81,3 +81,37 @@ torchrun --nproc_per_node=4 evaluate_fid_ddp.py --model DiT-B/2 \
 REPA's gain grows with model scale (−15% at B/2 → −34% at XL/2), consistent with
 the paper's finding that representation alignment helps larger DiT/SiT more.
 FID-vs-step curves (every ~50k) launched to quantify the speedup factor.
+
+---
+
+# RAE-flow (Path A) — EMA decay ablation
+
+Separate line of work: our DiT trained **in the RAE (DINOv3-L K7) latent space**
+with a flow-matching objective (`train_rae_flow.py`, `--arch dit_rope`, Muon,
+GBS 1024, flip aug, 100k steps on 16× GB200). Not REPA — recorded here for now.
+
+The EMA decay was hardcoded at `0.9999` (~10k-step averaging horizon). At high LR
+this keeps the early-training chaos in the average, so EMA checkpoints are
+**useless for early evaluation**. RAEv2 uses `0.9995` (~2k-step horizon). We added
+`--ema-decay` (default `0.9995`) and ran two otherwise-identical 100k lines.
+
+## Results — EMA 0.9999 vs 0.9995 (cfg 1.8, ImageNet-256, ADM ref stats)
+
+| step | EMA 0.9999 (old) | EMA 0.9995 (new) | metric  |
+|------|------------------|------------------|---------|
+| 10k  | 308.24           | **12.24**        | FID-10k |
+| 20k  | 125.04           | **8.68**         | FID-10k |
+| 100k | 3.93             | **3.71**         | FID-50k |
+
+Two findings:
+
+1. **Early-checkpoint EMA artifact is eliminated.** At 10k the EMA model goes from
+   unusable (308) to good (12); at 20k from 125 to 8.7. The short horizon lets EMA
+   track the real weights once LR is still high.
+2. **No cost at convergence — slightly better.** Final FID-50k 3.71 vs 3.93: the
+   short horizon also averages less noise during the 2e-5 LR tail.
+
+So `0.9995` strictly dominates: it makes mid-training FID meaningful (matters for
+early-stopping / checkpoint selection) **and** lowers the final FID. Now the
+default. Eval pipeline: `scripts/fid-rae-flow.sbatch` (per-job isolated sample
+dir, ADM `VIRTUAL_imagenet256_labeled.npz` reference).
