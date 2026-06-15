@@ -168,6 +168,12 @@ def main(args):
         if p.requires_grad:
             p.register_hook(lambda g: g.contiguous())
     if os.environ.get("DISABLE_COMPILE") != "1":
+        # optimize_ddp=False disables Dynamo's DDPOptimizer (the bucket-boundary
+        # graph split). At enc_hidden=1440 that split + the non-contiguous conv
+        # grad produced an out-of-bounds kernel; disabling it keeps compile speed
+        # without the crash. Default (True) is fine at 1152.
+        if os.environ.get("OPTIMIZE_DDP") == "0":
+            torch._dynamo.config.optimize_ddp = False
         model = torch.compile(model)
     ema = deepcopy(model).to(device)
     for p in ema.parameters():
