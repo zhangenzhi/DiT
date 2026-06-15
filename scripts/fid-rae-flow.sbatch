@@ -34,18 +34,26 @@ REF=/work/hps0/home/ea0104/datasets/fid_refs/VIRTUAL_imagenet256_labeled.npz
 CKPT_S=$(basename "$CKPT" .pt)
 # tag the run with its lineage (results dir) so main/ema9995 rows are distinguishable
 LINEAGE=$(echo "$CKPT" | grep -oP 'results/\K[^/]+(?=/|$)' | head -1)
-echo "FID-RAE-FLOW: CKPT=$CKPT_S LINEAGE=$LINEAGE NSAMP=$NSAMP CFG=$CFG ARCH=$ARCH"
-
-# sample dir must be unique per job: basename-only naming collides when two
-# lineages evaluate the same step number concurrently (mixed samples, bogus FID)
+# Internal Guidance eval: set IG_BASE_DEPTH=8 (needs ARCH=dit_rope_ddt). 0 = use CFG.
+: "${IG_BASE_DEPTH:=0}"; : "${IG_SCALE:=2.0}"
+: "${ENC_HIDDEN:=1152}"; : "${ENC_HEADS:=16}"
 SDIR="outputs/rae_flow_samples/${LINEAGE}-${SLURM_JOB_ID}"
+
+if [ "$IG_BASE_DEPTH" -gt 0 ]; then
+  GUID="ig${IG_SCALE}-d${IG_BASE_DEPTH}"; GUIDFLAGS="--ig-base-depth $IG_BASE_DEPTH --ig-scale $IG_SCALE"
+else
+  GUID="cfg${CFG}"; GUIDFLAGS="--cfg-scale $CFG"
+fi
+echo "FID-RAE-FLOW: CKPT=$CKPT_S LINEAGE=$LINEAGE NSAMP=$NSAMP GUID=$GUID ARCH=$ARCH enc=$ENC_HIDDEN"
+
 numactl --membind=0,1 torchrun --standalone --nproc_per_node=4 \
   ./sample_rae_flow.py --ckpt "$CKPT" --arch "$ARCH" --num-fid-samples "$NSAMP" \
-  --cfg-scale "$CFG" --per-proc-batch-size 32 --num-steps 100 --sample-dir "$SDIR"
+  --enc-hidden $ENC_HIDDEN --enc-heads $ENC_HEADS \
+  $GUIDFLAGS --per-proc-batch-size 32 --num-steps 100 --sample-dir "$SDIR"
 
-NPZ="${SDIR}/rae-flow-${CKPT_S}-cfg${CFG}-seed0.npz"
+NPZ="${SDIR}/rae-flow-${CKPT_S}-${GUID}-seed0.npz"
 [ -f "$NPZ" ] || { echo "ERROR no npz: $NPZ"; exit 1; }
 FID=$(python fid_from_stats.py --samples-npz "$NPZ" --ref-npz "$REF" | awk '/^FID-/{print $NF}')
-echo "RESULT(rae-flow): $LINEAGE/$CKPT_S cfg=$CFG -> FID${NSAMP}=$FID"
-echo -e "${LINEAGE}/${CKPT_S}\tcfg=${CFG}\tFID${NSAMP}=${FID}" >> "$OUTFILE"
+echo "RESULT(rae-flow): $LINEAGE/$CKPT_S $GUID -> FID${NSAMP}=$FID"
+echo -e "${LINEAGE}/${CKPT_S}\t${GUID}\tFID${NSAMP}=${FID}" >> "$OUTFILE"
 sort "$OUTFILE"

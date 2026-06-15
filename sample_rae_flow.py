@@ -23,19 +23,19 @@ from rae_utils import LATENT, add_rae_root_arg, load_rae
 SHIFT = math.sqrt(math.prod(LATENT) / 4096.0)   # = 8.0
 
 
-def build_net(arch, num_classes, device, base_model_depth=None):
+def build_net(arch, num_classes, device, base_model_depth=None, enc_hidden=1152, enc_heads=16):
     if arch == "dit_rope_ddt":
         return DiT_RoPE_DDT(input_size=16, patch_size=1, in_channels=1024,
-                            enc_hidden=1152, dec_hidden=2048, enc_depth=28, dec_depth=2,
-                            enc_heads=16, dec_heads=16, num_classes=num_classes,
+                            enc_hidden=enc_hidden, dec_hidden=2048, enc_depth=28, dec_depth=2,
+                            enc_heads=enc_heads, dec_heads=16, num_classes=num_classes,
                             learn_sigma=False, base_model_depth=base_model_depth).to(device)
     Net = DiT_RoPE if arch == "dit_rope" else DiT
     return Net(input_size=16, patch_size=1, in_channels=1024, hidden_size=1152,
                depth=28, num_heads=16, num_classes=num_classes, learn_sigma=False).to(device)
 
 
-def load_model(ckpt, arch, num_classes, device, base_model_depth=None):
-    model = build_net(arch, num_classes, device, base_model_depth)
+def load_model(ckpt, arch, num_classes, device, base_model_depth=None, enc_hidden=1152, enc_heads=16):
+    model = build_net(arch, num_classes, device, base_model_depth, enc_hidden, enc_heads)
     sd = find_model(ckpt)  # ['ema'] if present
     sd = {(k[len("_orig_mod."):] if k.startswith("_orig_mod.") else k): v for k, v in sd.items()}
     sd = {k: v for k, v in sd.items() if not k.startswith("repa_projector")}  # drop unused REPA head
@@ -115,10 +115,12 @@ def main(args):
 
     use_ig = args.ig_base_depth > 0
     model = load_model(args.ckpt, args.arch, args.num_classes, device,
-                       base_model_depth=args.ig_base_depth or None)
+                       base_model_depth=args.ig_base_depth or None,
+                       enc_hidden=args.enc_hidden, enc_heads=args.enc_heads)
     model_bad = None
     if args.ag_ckpt and not use_ig:
-        model_bad = load_model(args.ag_ckpt, args.arch, args.num_classes, device)
+        model_bad = load_model(args.ag_ckpt, args.arch, args.num_classes, device,
+                               enc_hidden=args.enc_hidden, enc_heads=args.enc_heads)
     if rank == 0:
         if use_ig:
             print(f"INTERNAL GUIDANCE: ckpt={os.path.basename(args.ckpt)} base_depth={args.ig_base_depth} "
@@ -196,5 +198,7 @@ if __name__ == "__main__":
     p.add_argument("--ig-scale", type=float, default=2.0, help="IG weight in base+ig_scale*(full-base)")
     p.add_argument("--ig-low", type=float, default=0.0, help="IG interval lower bound on pre-shift time fraction (RAEv2 default 0)")
     p.add_argument("--ig-high", type=float, default=1.0, help="IG interval upper bound (RAEv2 default 1 = always on)")
+    p.add_argument("--enc-hidden", type=int, default=1152, help="DDT encoder width; must match the trained checkpoint (RAEv2 imagenet=1440).")
+    p.add_argument("--enc-heads", type=int, default=16, help="DDT encoder heads; must match the trained checkpoint (RAEv2=20).")
     args = parse_args(p)
     main(args)

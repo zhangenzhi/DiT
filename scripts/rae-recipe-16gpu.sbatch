@@ -48,6 +48,8 @@ IG_BASE_DEPTH=${IG_BASE_DEPTH:-0}
 IG_BASE_COEFF=${IG_BASE_COEFF:-1.0}
 MAX_STEPS=${MAX_STEPS:-100000}
 LOG_EVERY=${LOG_EVERY:-100}
+ENC_HIDDEN=${ENC_HIDDEN:-1152}   # RAEv2 imagenet uses 1440 (heads 20)
+ENC_HEADS=${ENC_HEADS:-16}
 
 N_LAT=$(ls "$LATDIR"/*.npy 2>/dev/null | wc -l)
 N_FLIP=$(ls "$FLIPDIR"/*.npy 2>/dev/null | wc -l)
@@ -98,6 +100,7 @@ for ATTEMPT in $(seq 1 99); do
       ./train_rae_flow.py --config configs/train_rae_flow.yaml \
       --latent-dir \$USER_SCRATCH_DIR/lat --latent-flip-dir \$USER_SCRATCH_DIR/lat_flip --arch $ARCH \
       --ig-base-depth $IG_BASE_DEPTH --ig-base-coeff $IG_BASE_COEFF \
+      --enc-hidden $ENC_HIDDEN --enc-heads $ENC_HEADS \
       --optimizer muon --learning-rate 2e-4 --lr-final 2e-5 \
       --lr-hold-steps 31250 --lr-decay-end-steps 62500 \
       --results-dir $RESULTS_DIR --ema-decay $EMA_DECAY --log-every $LOG_EVERY \

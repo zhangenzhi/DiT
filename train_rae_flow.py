@@ -134,12 +134,12 @@ def main(args):
     use_ig = args.ig_base_depth > 0
     if args.arch == "dit_rope_ddt":
         model = DiT_RoPE_DDT(input_size=16, patch_size=1, in_channels=1024,
-                             enc_hidden=1152, dec_hidden=2048, enc_depth=28, dec_depth=2,
-                             enc_heads=16, dec_heads=16, num_classes=args.num_classes,
+                             enc_hidden=args.enc_hidden, dec_hidden=2048, enc_depth=28, dec_depth=2,
+                             enc_heads=args.enc_heads, dec_heads=16, num_classes=args.num_classes,
                              learn_sigma=False,
                              base_model_depth=args.ig_base_depth or None).to(device)
         if rank == 0:
-            logger.info(f"ARCH: DiT_RoPE_DDT (two-stream: 28x1152 enc + 2x2048 dec)"
+            logger.info(f"ARCH: DiT_RoPE_DDT (two-stream: 28x{args.enc_hidden} enc + 2x2048 dec)"
                         + (f" + IG base@depth{args.ig_base_depth} coeff={args.ig_base_coeff}" if use_ig else ", no IG"))
     elif args.arch == "dit_rope":
         if use_repa:
@@ -347,6 +347,8 @@ if __name__ == "__main__":
     p.add_argument("--repa-lambda", type=float, default=0.0, help="REPA aux-loss weight (0=off). Target=clean DINOv3 latent.")
     p.add_argument("--ig-base-depth", type=int, default=0, help="Internal Guidance: encoder depth for the early-exit base head (0=off; RAEv2 uses 8). dit_rope_ddt only.")
     p.add_argument("--ig-base-coeff", type=float, default=1.0, help="weight of the IG base-head velocity loss (RAEv2: 1.0)")
+    p.add_argument("--enc-hidden", type=int, default=1152, help="DDT encoder width (RAEv2 imagenet uses 1440). dit_rope_ddt only.")
+    p.add_argument("--enc-heads", type=int, default=16, help="DDT encoder heads (RAEv2: 20 at width 1440, head_dim 72). dit_rope_ddt only.")
     p.add_argument("--align-depth", type=int, default=8)
     p.add_argument("--resume", default=None, help="checkpoint .pt to resume model/ema/opt/step from")
     p.add_argument("--arch", default="dit", choices=["dit", "dit_rope", "dit_rope_ddt"],
