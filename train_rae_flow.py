@@ -158,7 +158,17 @@ def main(args):
             logger.info(f"REPA ON (vanilla DiT): target=DINOv3 latent, align_depth={args.align_depth}, lambda={args.repa_lambda}")
     else:
         model = DiT(**common).to(device)
-    model = torch.compile(model)
+    # cuDNN emits channels_last (non-contiguous) grads for the 1x1-conv PatchEmbed
+    # weights, violating DDP's grad-layout contract. Benign at 1152 but at 1440 the
+    # bucket packing shifts and DDP all-reduce reads scrambled memory -> grad norm
+    # explodes (~1e5) -> NaN. Force every grad contiguous before DDP reduces it
+    # (hooks registered pre-wrap fire before DDP's reduction hook; no-op for the
+    # already-contiguous majority, compile-safe since hooks run outside the graph).
+    for p in model.parameters():
+        if p.requires_grad:
+            p.register_hook(lambda g: g.contiguous())
+    if os.environ.get("DISABLE_COMPILE") != "1":
+        model = torch.compile(model)
     ema = deepcopy(model).to(device)
     for p in ema.parameters():
         p.requires_grad_(False)
