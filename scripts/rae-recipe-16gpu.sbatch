@@ -42,6 +42,12 @@ FLIPDIR=/work/hps0/home/ea0104/datasets/rae_dinov3l_k7_latents_flip/train
 #   RESULTS_DIR=results/ema9995 sbatch --export=ALL,RESULTS_DIR=results/ema9995 ...
 RESULTS_DIR=${RESULTS_DIR:-results}
 EMA_DECAY=${EMA_DECAY:-0.9995}
+ARCH=${ARCH:-dit_rope}
+# Internal Guidance: set IG_BASE_DEPTH=8 (needs ARCH=dit_rope_ddt). 0 = off.
+IG_BASE_DEPTH=${IG_BASE_DEPTH:-0}
+IG_BASE_COEFF=${IG_BASE_COEFF:-1.0}
+MAX_STEPS=${MAX_STEPS:-100000}
+LOG_EVERY=${LOG_EVERY:-100}
 
 N_LAT=$(ls "$LATDIR"/*.npy 2>/dev/null | wc -l)
 N_FLIP=$(ls "$FLIPDIR"/*.npy 2>/dev/null | wc -l)
@@ -90,11 +96,12 @@ for ATTEMPT in $(seq 1 99); do
     exec numactl --membind=0,1 torchrun --nnodes=$SLURM_NNODES --nproc_per_node=4 \
       --node_rank=\$SLURM_NODEID --master_addr=$MASTER_ADDR --master_port=$MASTER_PORT \
       ./train_rae_flow.py --config configs/train_rae_flow.yaml \
-      --latent-dir \$USER_SCRATCH_DIR/lat --latent-flip-dir \$USER_SCRATCH_DIR/lat_flip --arch dit_rope \
+      --latent-dir \$USER_SCRATCH_DIR/lat --latent-flip-dir \$USER_SCRATCH_DIR/lat_flip --arch $ARCH \
+      --ig-base-depth $IG_BASE_DEPTH --ig-base-coeff $IG_BASE_COEFF \
       --optimizer muon --learning-rate 2e-4 --lr-final 2e-5 \
       --lr-hold-steps 31250 --lr-decay-end-steps 62500 \
-      --results-dir $RESULTS_DIR --ema-decay $EMA_DECAY \
-      --global-batch-size 1024 --ckpt-every 5000 --max-steps 100000 $RESUME_ARG
+      --results-dir $RESULTS_DIR --ema-decay $EMA_DECAY --log-every $LOG_EVERY \
+      --global-batch-size 1024 --ckpt-every 5000 --max-steps $MAX_STEPS $RESUME_ARG
   "; then
     echo "training finished (attempt $ATTEMPT)"; exit 0
   fi

@@ -21,6 +21,10 @@ import numpy as np
 import torch
 import torch.distributed as dist
 import torch.nn.functional as F
+# Muon's Newton-Schulz (gram_newton_schulz) is torch.compile'd and recompiles per
+# distinct matrix shape. The DDT/IG arch has many more 2D param shapes than dit_rope
+# (1152 enc + 2048 dec + base head), exceeding the default recompile_limit of 8.
+torch._dynamo.config.recompile_limit = 256
 from torch.nn.parallel import DistributedDataParallel as DDP
 from torch.utils.data import DataLoader
 from torch.utils.data.distributed import DistributedSampler
@@ -127,13 +131,16 @@ def main(args):
     common = dict(input_size=16, patch_size=1, in_channels=1024, hidden_size=1152,
                   depth=28, num_heads=16, num_classes=args.num_classes, learn_sigma=False)
     repa_kw = dict(z_dim=1024, proj_dim=2048, align_depth=args.align_depth)
+    use_ig = args.ig_base_depth > 0
     if args.arch == "dit_rope_ddt":
         model = DiT_RoPE_DDT(input_size=16, patch_size=1, in_channels=1024,
                              enc_hidden=1152, dec_hidden=2048, enc_depth=28, dec_depth=2,
                              enc_heads=16, dec_heads=16, num_classes=args.num_classes,
-                             learn_sigma=False).to(device)
+                             learn_sigma=False,
+                             base_model_depth=args.ig_base_depth or None).to(device)
         if rank == 0:
-            logger.info("ARCH: DiT_RoPE_DDT (two-stream: 28x1152 enc + 2x2048 per-token-cond dec), no REPA")
+            logger.info(f"ARCH: DiT_RoPE_DDT (two-stream: 28x1152 enc + 2x2048 dec)"
+                        + (f" + IG base@depth{args.ig_base_depth} coeff={args.ig_base_coeff}" if use_ig else ", no IG"))
     elif args.arch == "dit_rope":
         if use_repa:
             model = DiT_RoPE_REPA(**common, **repa_kw).to(device)
@@ -247,6 +254,14 @@ def main(args):
                              * F.normalize(x0_tok.float(), dim=-1, eps=1e-2)).sum(-1).mean()
                     v_mse = F.mse_loss(v_pred.float(), v_tgt)
                     loss = v_mse + args.repa_lambda * repa
+                elif use_ig:
+                    # IG: model returns (full, base early-exit); supervise both on
+                    # the same velocity target so the base head is a valid weak denoiser.
+                    v_full, v_base = model(xt, t, y)
+                    v_mse = F.mse_loss(v_full.float(), v_tgt)
+                    v_mse_base = F.mse_loss(v_base.float(), v_tgt)
+                    repa = v_mse_base.detach()       # reuse the repa log slot for base-loss visibility
+                    loss = v_mse + args.ig_base_coeff * v_mse_base
                 else:
                     v_pred = model(xt, t, y)
                     v_mse = F.mse_loss(v_pred.float(), v_tgt)
@@ -330,6 +345,8 @@ if __name__ == "__main__":
     p.add_argument("--latent-flip-dir", default=None, help="dir of flipped-image latents; if set, p=0.5 flip augmentation")
     p.add_argument("--max-steps", type=int, default=0, help="stop after N steps (0=unlimited); for smoke tests")
     p.add_argument("--repa-lambda", type=float, default=0.0, help="REPA aux-loss weight (0=off). Target=clean DINOv3 latent.")
+    p.add_argument("--ig-base-depth", type=int, default=0, help="Internal Guidance: encoder depth for the early-exit base head (0=off; RAEv2 uses 8). dit_rope_ddt only.")
+    p.add_argument("--ig-base-coeff", type=float, default=1.0, help="weight of the IG base-head velocity loss (RAEv2: 1.0)")
     p.add_argument("--align-depth", type=int, default=8)
     p.add_argument("--resume", default=None, help="checkpoint .pt to resume model/ema/opt/step from")
     p.add_argument("--arch", default="dit", choices=["dit", "dit_rope", "dit_rope_ddt"],

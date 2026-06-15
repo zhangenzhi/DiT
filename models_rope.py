@@ -262,7 +262,8 @@ class DiT_RoPE_DDT(nn.Module):
     def __init__(self, input_size=16, patch_size=1, in_channels=1024,
                  enc_hidden=1152, dec_hidden=2048, enc_depth=28, dec_depth=2,
                  enc_heads=16, dec_heads=16, mlp_ratio=4.0, class_dropout_prob=0.1,
-                 num_classes=1000, learn_sigma=False, num_t_tokens=4, num_c_tokens=8):
+                 num_classes=1000, learn_sigma=False, num_t_tokens=4, num_c_tokens=8,
+                 base_model_depth=None):
         super().__init__()
         self.learn_sigma = learn_sigma
         self.in_channels = in_channels
@@ -270,6 +271,11 @@ class DiT_RoPE_DDT(nn.Module):
         self.patch_size = patch_size
         self.num_t_tokens = num_t_tokens
         self.num_c_tokens = num_c_tokens
+        # Internal Guidance (RAEv2): early-exit "base" head off encoder layer
+        # `base_model_depth`; forward then returns (full, base). At sampling the
+        # full model is guided by this weaker early-exit one -> autoguidance with
+        # no second model. None = plain DDT (single output, backward compatible).
+        self.base_model_depth = base_model_depth
 
         self.s_embedder = PatchEmbed(input_size, patch_size, in_channels, enc_hidden, bias=True)
         self.x_embedder = PatchEmbed(input_size, patch_size, in_channels, dec_hidden, bias=True)
@@ -290,6 +296,10 @@ class DiT_RoPE_DDT(nn.Module):
         self.dec_blocks = nn.ModuleList([
             DDTDecBlock(dec_hidden, dec_heads, mlp_ratio) for _ in range(dec_depth)])
         self.final_layer = DDTFinalLayer(dec_hidden, patch_size, self.out_channels)
+        if base_model_depth is not None:
+            assert 1 <= base_model_depth <= enc_depth, f"base_model_depth {base_model_depth} out of [1,{enc_depth}]"
+            # base head runs at encoder width (RAEv2: early exit straight off the encoder)
+            self.base_final_layer = DDTFinalLayer(enc_hidden, patch_size, self.out_channels)
         self.initialize_weights()
 
     def initialize_weights(self):
@@ -315,6 +325,11 @@ class DiT_RoPE_DDT(nn.Module):
         nn.init.constant_(self.final_layer.adaLN[-1].bias, 0)
         nn.init.constant_(self.final_layer.linear.weight, 0)
         nn.init.constant_(self.final_layer.linear.bias, 0)
+        if self.base_model_depth is not None:        # zero-init base head -> identity start
+            nn.init.constant_(self.base_final_layer.adaLN[-1].weight, 0)
+            nn.init.constant_(self.base_final_layer.adaLN[-1].bias, 0)
+            nn.init.constant_(self.base_final_layer.linear.weight, 0)
+            nn.init.constant_(self.base_final_layer.linear.bias, 0)
 
     def unpatchify(self, x):
         c = self.out_channels
@@ -331,8 +346,11 @@ class DiT_RoPE_DDT(nn.Module):
         t_tok = t_vec.unsqueeze(1) + self.t_token_emb.unsqueeze(0)   # (N, num_t_tokens, H)
         c_tok = y_vec.unsqueeze(1) + self.c_token_emb.unsqueeze(0)   # (N, num_c_tokens, H)
         seq = torch.cat([self.s_embedder(x), t_tok, c_tok], dim=1)   # (N, 256 + 12, H)
-        for block in self.enc_blocks:
+        base_patches = None
+        for i, block in enumerate(self.enc_blocks):
             seq = block(seq, self.enc_rope)
+            if self.base_model_depth is not None and (i + 1) == self.base_model_depth:
+                base_patches = seq[:, :self.num_patches, :]  # early-exit features
         patches = seq[:, :self.num_patches, :]              # drop cond tokens
         cond = self.s_projector(F.silu(t_vec.unsqueeze(1) + patches))     # (N, 256, dec_hidden)
 
@@ -340,7 +358,13 @@ class DiT_RoPE_DDT(nn.Module):
         for block in self.dec_blocks:
             h = block(h, cond, self.dec_rope)
         h = self.final_layer(h, cond)
-        return self.unpatchify(h)
+        full = self.unpatchify(h)
+        if self.base_model_depth is None:
+            return full
+        # base head: early-exit encoder features -> velocity, conditioned on themselves
+        xb = F.silu(t_vec.unsqueeze(1) + base_patches)
+        xb = self.base_final_layer(xb, xb)
+        return full, self.unpatchify(xb)
 
     def forward_with_cfg(self, x, t, y, cfg_scale, cfg_interval=None):
         half = x[: len(x) // 2]
