@@ -258,7 +258,10 @@ def main(args):
             t = sample_t(x0.shape[0])
             te = t.view(-1, 1, 1, 1)
             xt = (1 - te) * x0 + te * noise
-            v_tgt = noise - x0
+            # prediction target: velocity (noise-x0, default) or clean x0 (RAEv2 'prediction: x').
+            # Same linear interpolant/time; only the regression target changes (-> different
+            # per-timestep loss weighting). Sampling converts x-pred back to velocity.
+            v_tgt = x0 if args.prediction == "x" else noise - x0
             with torch.autocast("cuda", dtype=torch.bfloat16):
                 if use_repa:
                     v_pred, zs = model(xt, t, y)          # zs: [B, 256, 1024] projected hidden @align_depth
@@ -365,6 +368,7 @@ if __name__ == "__main__":
     p.add_argument("--ig-base-coeff", type=float, default=1.0, help="weight of the IG base-head velocity loss (RAEv2: 1.0)")
     p.add_argument("--enc-hidden", type=int, default=1152, help="DDT encoder width (RAEv2 imagenet uses 1440). dit_rope_ddt only.")
     p.add_argument("--enc-heads", type=int, default=16, help="DDT encoder heads (RAEv2: 20 at width 1440, head_dim 72). dit_rope_ddt only.")
+    p.add_argument("--prediction", default="v", choices=["v", "x"], help="regression target: v=velocity (noise-x0), x=clean x0 (RAEv2). Sampler must match.")
     p.add_argument("--align-depth", type=int, default=8)
     p.add_argument("--resume", default=None, help="checkpoint .pt to resume model/ema/opt/step from")
     p.add_argument("--arch", default="dit", choices=["dit", "dit_rope", "dit_rope_ddt"],

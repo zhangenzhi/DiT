@@ -36,7 +36,7 @@ CKPT_S=$(basename "$CKPT" .pt)
 LINEAGE=$(echo "$CKPT" | grep -oP 'results/\K[^/]+(?=/|$)' | head -1)
 # Internal Guidance eval: set IG_BASE_DEPTH=8 (needs ARCH=dit_rope_ddt). 0 = use CFG.
 : "${IG_BASE_DEPTH:=0}"; : "${IG_SCALE:=2.0}"
-: "${ENC_HIDDEN:=1152}"; : "${ENC_HEADS:=16}"
+: "${ENC_HIDDEN:=1152}"; : "${ENC_HEADS:=16}"; : "${PREDICTION:=v}"
 SDIR="outputs/rae_flow_samples/${LINEAGE}-${SLURM_JOB_ID}"
 
 if [ "$IG_BASE_DEPTH" -gt 0 ]; then
@@ -48,7 +48,7 @@ echo "FID-RAE-FLOW: CKPT=$CKPT_S LINEAGE=$LINEAGE NSAMP=$NSAMP GUID=$GUID ARCH=$
 
 numactl --membind=0,1 torchrun --standalone --nproc_per_node=4 \
   ./sample_rae_flow.py --ckpt "$CKPT" --arch "$ARCH" --num-fid-samples "$NSAMP" \
-  --enc-hidden $ENC_HIDDEN --enc-heads $ENC_HEADS \
+  --enc-hidden $ENC_HIDDEN --enc-heads $ENC_HEADS --prediction $PREDICTION \
   $GUIDFLAGS --per-proc-batch-size 32 --num-steps 100 --sample-dir "$SDIR"
 
 NPZ="${SDIR}/rae-flow-${CKPT_S}-${GUID}-seed0.npz"

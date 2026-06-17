@@ -23,6 +23,14 @@ from rae_utils import LATENT, add_rae_root_arg, load_rae
 SHIFT = math.sqrt(math.prod(LATENT) / 4096.0)   # = 8.0
 
 
+def to_velocity(out, xt, t, prediction):
+    """Convert a model output to velocity. 'v': output already is velocity.
+    'x': output is the clean-x0 prediction -> v = (xt - x0_pred)/t for the linear
+    interpolant xt=(1-t)x0+t*noise. At t->0 the Euler step cancels t exactly; the
+    smallest mid-trajectory t (~0.075 at 100 steps/shift 8) keeps the divide safe."""
+    return (xt - out) / t if prediction == "x" else out
+
+
 def build_net(arch, num_classes, device, base_model_depth=None, enc_hidden=1152, enc_heads=16):
     if arch == "dit_rope_ddt":
         return DiT_RoPE_DDT(input_size=16, patch_size=1, in_channels=1024,
@@ -45,7 +53,7 @@ def load_model(ckpt, arch, num_classes, device, base_model_depth=None, enc_hidde
 
 
 @torch.no_grad()
-def velocity_ode(model, z, y, num_steps, cfg, num_classes, device):
+def velocity_ode(model, z, y, num_steps, cfg, num_classes, device, prediction="v"):
     t_grid = torch.linspace(1.0, 0.0, num_steps + 1, dtype=torch.float64)
     t_grid = SHIFT * t_grid / (1 + (SHIFT - 1) * t_grid)
     x = z.double()
@@ -53,23 +61,25 @@ def velocity_ode(model, z, y, num_steps, cfg, num_classes, device):
     ynull = torch.full_like(y, num_classes)
     for tc, tn in zip(t_grid[:-1], t_grid[1:]):
         if use_cfg:
-            xin = torch.cat([x, x], 0).float()
+            xin = torch.cat([x, x], 0)
             yin = torch.cat([y, ynull], 0)
             tin = torch.full((xin.shape[0],), float(tc), device=device)
             with torch.autocast("cuda", dtype=torch.bfloat16):
-                v = model(xin, tin, yin).double()
+                out = model(xin.float(), tin, yin).double()
+            v = to_velocity(out, xin, float(tc), prediction)
             vc, vu = v.chunk(2, 0)
             v = vu + cfg * (vc - vu)
         else:
             tin = torch.full((x.shape[0],), float(tc), device=device)
             with torch.autocast("cuda", dtype=torch.bfloat16):
-                v = model(x.float(), tin, y).double()
+                out = model(x.float(), tin, y).double()
+            v = to_velocity(out, x, float(tc), prediction)
         x = x + (tn - tc) * v
     return x.float()
 
 
 @torch.no_grad()
-def velocity_ode_ag(model_g, model_b, z, y, num_steps, w, device):
+def velocity_ode_ag(model_g, model_b, z, y, num_steps, w, device, prediction="v"):
     """Autoguidance (Karras 2024): guide the good model with an undertrained copy
     of itself. Both passes are class-conditional (no unconditional). v = vb + w*(vg-vb)."""
     t_grid = torch.linspace(1.0, 0.0, num_steps + 1, dtype=torch.float64)
@@ -78,15 +88,15 @@ def velocity_ode_ag(model_g, model_b, z, y, num_steps, w, device):
     for tc, tn in zip(t_grid[:-1], t_grid[1:]):
         tin = torch.full((x.shape[0],), float(tc), device=device)
         with torch.autocast("cuda", dtype=torch.bfloat16):
-            vg = model_g(x.float(), tin, y).double()
-            vb = model_b(x.float(), tin, y).double()
+            vg = to_velocity(model_g(x.float(), tin, y).double(), x, float(tc), prediction)
+            vb = to_velocity(model_b(x.float(), tin, y).double(), x, float(tc), prediction)
         v = vb + w * (vg - vb)
         x = x + (tn - tc) * v
     return x.float()
 
 
 @torch.no_grad()
-def velocity_ode_ig(model, z, y, num_steps, ig_scale, device, ig_low=0.0, ig_high=1.0):
+def velocity_ode_ig(model, z, y, num_steps, ig_scale, device, ig_low=0.0, ig_high=1.0, prediction="v"):
     """RAEv2 Internal Guidance: the model returns (full, base early-exit). Guide the
     full prediction with its own weak early-exit head: v = base + ig_scale*(full-base).
     One forward, no second model and no null class (unlike AG/CFG). ig_low/high gate
@@ -99,7 +109,8 @@ def velocity_ode_ig(model, z, y, num_steps, ig_scale, device, ig_low=0.0, ig_hig
         tin = torch.full((x.shape[0],), float(tc), device=device)
         with torch.autocast("cuda", dtype=torch.bfloat16):
             full, base = model(x.float(), tin, y)
-        full = full.double(); base = base.double()
+        full = to_velocity(full.double(), x, float(tc), prediction)
+        base = to_velocity(base.double(), x, float(tc), prediction)
         v = base + ig_scale * (full - base) if ig_low <= tfrac <= ig_high else full
         x = x + (tn - tc) * v
     return x.float()
@@ -160,11 +171,13 @@ def main(args):
         with torch.no_grad():
             if use_ig:
                 x0 = velocity_ode_ig(model, z, labels, args.num_steps, args.ig_scale, device,
-                                     ig_low=args.ig_low, ig_high=args.ig_high)
+                                     ig_low=args.ig_low, ig_high=args.ig_high, prediction=args.prediction)
             elif model_bad is not None:
-                x0 = velocity_ode_ag(model, model_bad, z, labels, args.num_steps, args.ag_scale, device)
+                x0 = velocity_ode_ag(model, model_bad, z, labels, args.num_steps, args.ag_scale, device,
+                                     prediction=args.prediction)
             else:
-                x0 = velocity_ode(model, z, labels, args.num_steps, args.cfg_scale, args.num_classes, device)
+                x0 = velocity_ode(model, z, labels, args.num_steps, args.cfg_scale, args.num_classes, device,
+                                  prediction=args.prediction)
             imgs = rae.decode(x0).clamp(0, 1)
         arr = imgs.mul(255).permute(0, 2, 3, 1).to("cpu", torch.uint8).numpy()
         for i, im in enumerate(arr):
@@ -200,5 +213,6 @@ if __name__ == "__main__":
     p.add_argument("--ig-high", type=float, default=1.0, help="IG interval upper bound (RAEv2 default 1 = always on)")
     p.add_argument("--enc-hidden", type=int, default=1152, help="DDT encoder width; must match the trained checkpoint (RAEv2 imagenet=1440).")
     p.add_argument("--enc-heads", type=int, default=16, help="DDT encoder heads; must match the trained checkpoint (RAEv2=20).")
+    p.add_argument("--prediction", default="v", choices=["v", "x"], help="must match training: v=velocity output, x=clean-x0 output (converted to velocity for the ODE).")
     args = parse_args(p)
     main(args)

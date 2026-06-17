@@ -33,6 +33,11 @@ export NCCL_DMABUF_ENABLE=0
 # and ALGO=Ring both pass. LL/LL128 protocols are the suspect path; Simple costs
 # nothing for our large (33MB) gradient buckets.
 export NCCL_PROTO=Simple
+# Persistent inductor cache on shared FS: after a crash, recompile is a cache hit
+# (~30s) instead of a from-scratch compile (~5min). Critical for compile runs that
+# restart often under the platform NCCL hang. Harmless for eager.
+export TORCHINDUCTOR_CACHE_DIR=/work/hps0/home/ea0104/DiT/.inductor_cache
+export TRITON_CACHE_DIR=/work/hps0/home/ea0104/DiT/.triton_cache
 
 CODE_DIR=/work/hps0/home/ea0104/DiT
 LATDIR=/work/hps0/home/ea0104/datasets/rae_dinov3l_k7_latents/train
@@ -48,8 +53,10 @@ IG_BASE_DEPTH=${IG_BASE_DEPTH:-0}
 IG_BASE_COEFF=${IG_BASE_COEFF:-1.0}
 MAX_STEPS=${MAX_STEPS:-100000}
 LOG_EVERY=${LOG_EVERY:-100}
+CKPT_EVERY=${CKPT_EVERY:-5000}
 ENC_HIDDEN=${ENC_HIDDEN:-1152}   # RAEv2 imagenet uses 1440 (heads 20)
 ENC_HEADS=${ENC_HEADS:-16}
+PREDICTION=${PREDICTION:-v}
 
 N_LAT=$(ls "$LATDIR"/*.npy 2>/dev/null | wc -l)
 N_FLIP=$(ls "$FLIPDIR"/*.npy 2>/dev/null | wc -l)
@@ -100,11 +107,11 @@ for ATTEMPT in $(seq 1 99); do
       ./train_rae_flow.py --config configs/train_rae_flow.yaml \
       --latent-dir \$USER_SCRATCH_DIR/lat --latent-flip-dir \$USER_SCRATCH_DIR/lat_flip --arch $ARCH \
       --ig-base-depth $IG_BASE_DEPTH --ig-base-coeff $IG_BASE_COEFF \
-      --enc-hidden $ENC_HIDDEN --enc-heads $ENC_HEADS \
+      --enc-hidden $ENC_HIDDEN --enc-heads $ENC_HEADS --prediction $PREDICTION \
       --optimizer muon --learning-rate 2e-4 --lr-final 2e-5 \
       --lr-hold-steps 31250 --lr-decay-end-steps 62500 \
       --results-dir $RESULTS_DIR --ema-decay $EMA_DECAY --log-every $LOG_EVERY \
-      --global-batch-size 1024 --ckpt-every 5000 --max-steps $MAX_STEPS $RESUME_ARG
+      --global-batch-size 1024 --ckpt-every $CKPT_EVERY --max-steps $MAX_STEPS $RESUME_ARG
   "; then
     echo "training finished (attempt $ATTEMPT)"; exit 0
   fi
