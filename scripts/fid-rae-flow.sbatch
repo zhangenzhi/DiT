@@ -51,8 +51,10 @@ numactl --membind=0,1 torchrun --standalone --nproc_per_node=4 \
   --enc-hidden $ENC_HIDDEN --enc-heads $ENC_HEADS --prediction $PREDICTION \
   $GUIDFLAGS --per-proc-batch-size 32 --num-steps 100 --sample-dir "$SDIR"
 
-NPZ="${SDIR}/rae-flow-${CKPT_S}-${GUID}-seed0.npz"
-[ -f "$NPZ" ] || { echo "ERROR no npz: $NPZ"; exit 1; }
+# glob the actual npz (SDIR is per-job so there is exactly one): robust to the
+# sampler's interval/tag naming instead of reconstructing it from GUID.
+NPZ=$(ls "${SDIR}"/*.npz 2>/dev/null | head -1)
+[ -n "$NPZ" ] && [ -f "$NPZ" ] || { echo "ERROR no npz in $SDIR"; exit 1; }
 FID=$(python fid_from_stats.py --samples-npz "$NPZ" --ref-npz "$REF" | awk '/^FID-/{print $NF}')
 echo "RESULT(rae-flow): $LINEAGE/$CKPT_S $GUID -> FID${NSAMP}=$FID"
 echo -e "${LINEAGE}/${CKPT_S}\t${GUID}\tFID${NSAMP}=${FID}" >> "$OUTFILE"
