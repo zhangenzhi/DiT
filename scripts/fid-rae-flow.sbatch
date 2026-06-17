@@ -36,11 +36,11 @@ CKPT_S=$(basename "$CKPT" .pt)
 LINEAGE=$(echo "$CKPT" | grep -oP 'results/\K[^/]+(?=/|$)' | head -1)
 # Internal Guidance eval: set IG_BASE_DEPTH=8 (needs ARCH=dit_rope_ddt). 0 = use CFG.
 : "${IG_BASE_DEPTH:=0}"; : "${IG_SCALE:=2.0}"
-: "${ENC_HIDDEN:=1152}"; : "${ENC_HEADS:=16}"; : "${PREDICTION:=v}"
+: "${ENC_HIDDEN:=1152}"; : "${ENC_HEADS:=16}"; : "${PREDICTION:=v}"; : "${IG_LOW:=0.0}"
 SDIR="outputs/rae_flow_samples/${LINEAGE}-${SLURM_JOB_ID}"
 
 if [ "$IG_BASE_DEPTH" -gt 0 ]; then
-  GUID="ig${IG_SCALE}-d${IG_BASE_DEPTH}"; GUIDFLAGS="--ig-base-depth $IG_BASE_DEPTH --ig-scale $IG_SCALE"
+  GUID="ig${IG_SCALE}-d${IG_BASE_DEPTH}"; GUIDFLAGS="--ig-base-depth $IG_BASE_DEPTH --ig-scale $IG_SCALE --ig-low $IG_LOW"; GUID="${GUID}-lo${IG_LOW}"
 else
   GUID="cfg${CFG}"; GUIDFLAGS="--cfg-scale $CFG"
 fi
